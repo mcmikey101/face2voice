@@ -1,0 +1,476 @@
+# Face-to-Voice Training Configuration
+# Configuration for training face-to-voice mapping with OpenVoice V2
+
+# ==================== Experiment Settings ====================
+experiment:
+  name: face2voice_baseline
+  version: v1.0
+  description: "Baseline face-to-voice mapping with OpenVoice V2"
+  seed: 42
+  device: cuda  # cuda, cpu, cuda:0, cuda:1, etc.
+  use_amp: true  # Automatic Mixed Precision
+  deterministic: false  # Set to true for reproducible results (slower)
+
+
+# ==================== Model Architecture ====================
+model:
+  # Face encoder settings
+  face_encoder:
+    type: arcface  # Options: arcface, facenet, vit, convit
+    backbone: resnet50  # resnet18, resnet34, resnet50, resnet100
+    pretrained: true
+    weights_path: face2voice\checkpoints\ms1mv3_arcface_r50_fp16\backbone.pth
+    freeze: true  # Keep face encoder frozen during training
+    embedding_dim: 512
+  
+  # OpenVoice V2 encoder settings
+  openvoice_encoder:
+    version: v2
+    ckpt_base: face2voice\checkpoints\checkpoints_v2\base_speakers\ses\en-default.pth
+    ckpt_converter: face2voice\checkpoints\checkpoints_v2\converter\checkpoint.pth
+    embedding_dim: 256
+    freeze: true  # Always keep frozen
+    sample_rate: 24000  # V2 uses 24kHz
+  
+  # Mapping network settings (this is what gets trained!)
+  mapping_network:
+    input_dim: 512   # Face embedding dimension
+    output_dim: 256  # Voice embedding dimension
+    
+    # Hidden layer architecture
+    hidden_dims: [512, 384, 256]  # Experiment with: [512, 256], [512, 384], [512, 384, 256]
+    
+    # Activation and normalization
+    activation: relu  # relu, gelu, leaky_relu, elu
+    use_layer_norm: true
+    use_batch_norm: false
+    dropout: 0.2
+    
+    # Advanced options
+    use_residual: false  # Add residual connections
+    use_attention: false  # Add self-attention layer
+
+
+# ==================== Loss Function ====================
+loss:
+  # Combined loss with multiple components
+  type: combined
+  
+  # Cosine similarity loss (alignment)
+  cosine:
+    enabled: true
+    weight: 1.0
+    
+  # MSE loss (magnitude matching)
+  mse:
+    enabled: true
+    weight: 0.5
+  
+  # Contrastive loss (discrimination)
+  contrastive:
+    enabled: true
+    weight: 0.5
+    temperature: 0.07  # Lower = harder negatives
+  
+  # Distribution alignment loss
+  distribution:
+    enabled: true
+    weight: 0.1
+    match_mean: true
+    match_std: true
+    match_covariance: false  # Expensive, use carefully
+  
+  # Optional: Triplet loss
+  triplet:
+    enabled: false
+    weight: 0.3
+    margin: 0.2
+  
+  # Optional: Perceptual loss (requires generating audio)
+  perceptual:
+    enabled: false
+    weight: 0.2
+    speaker_verifier: resemblyzer  # resemblyzer, ecapa
+
+
+# ==================== Training Configuration ====================
+training:
+  # Basic settings
+  num_epochs: 100
+  batch_size: 32
+  num_workers: 4
+  pin_memory: true
+  
+  # Optimizer
+  optimizer:
+    type: adamw  # adam, adamw, sgd
+    learning_rate: 0.0001
+    weight_decay: 0.0005
+    betas: [0.9, 0.999]  # For Adam/AdamW
+    momentum: 0.9  # For SGD
+    eps: 1e-8
+  
+  # Learning rate scheduler
+  scheduler:
+    enabled: true
+    type: cosine  # cosine, step, plateau, exponential, onecycle
+    
+    # Cosine annealing
+    T_max: 100  # Number of epochs for full cycle
+    eta_min: 0.000001
+    
+    # Step scheduler
+    step_size: 20
+    gamma: 0.1
+    
+    # Plateau scheduler
+    patience: 10
+    factor: 0.5
+    mode: min
+    
+    # OneCycle scheduler
+    max_lr: 0.001
+    pct_start: 0.3
+    
+  # Gradient clipping
+  gradient_clip:
+    enabled: true
+    max_norm: 1.0
+    norm_type: 2
+  
+  # Gradient accumulation
+  accumulation_steps: 1  # Effective batch size = batch_size * accumulation_steps
+  
+  # Early stopping
+  early_stopping:
+    enabled: true
+    patience: 15
+    min_delta: 0.0001
+    mode: min  # min or max
+    metric: val_loss
+
+
+# ==================== Data Configuration ====================
+data:
+  # Dataset paths
+  train_dir: data/voxceleb2/train
+  val_dir: data/voxceleb2/val
+  test_dir: data/voxceleb2/test
+  
+  # Data split ratios (if creating splits from single directory)
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  
+  # Audio settings
+  audio:
+    sample_rate: 24000  # Must match OpenVoice V2
+    duration: null  # null = use full audio, or specify in seconds
+    min_duration: 1.0  # Minimum audio length in seconds
+    max_duration: 10.0  # Maximum audio length in seconds
+    
+  # Face image settings
+  face:
+    input_size: 112  # ArcFace uses 112x112
+    color_mode: RGB
+    
+  # Data augmentation
+  augmentation:
+    enabled: true
+    
+    # Face augmentation
+    face:
+      random_horizontal_flip: true
+      flip_prob: 0.5
+      
+      color_jitter: true
+      brightness: 0.2
+      contrast: 0.2
+      saturation: 0.2
+      hue: 0.1
+      
+      random_rotation: false
+      rotation_degrees: 15
+      
+      random_crop: false
+      crop_scale: [0.8, 1.0]
+      
+      gaussian_blur: false
+      blur_sigma: [0.1, 2.0]
+    
+    # Audio augmentation (applied before embedding extraction)
+    audio:
+      random_gain: true
+      gain_range: [-3, 3]  # dB
+      
+      add_noise: false
+      noise_level: 0.005
+      
+      time_stretch: false
+      stretch_range: [0.9, 1.1]
+      
+      pitch_shift: false
+      shift_range: [-2, 2]  # semitones
+  
+  # Normalization
+  normalization:
+    face:
+      mean: [0.5, 0.5, 0.5]
+      std: [0.5, 0.5, 0.5]
+
+
+# ==================== Validation and Evaluation ====================
+validation:
+  # How often to validate
+  val_every_n_epochs: 1
+  val_every_n_steps: null  # null = use epochs, or specify steps
+  
+  # Metrics to compute
+  metrics:
+    - cosine_similarity
+    - euclidean_distance
+    - mse
+    - mae
+  
+  # Compute embedding statistics
+  compute_statistics: true
+  
+  # Save validation predictions
+  save_predictions: false
+  num_samples_to_save: 10
+
+
+evaluation:
+  # Evaluation-specific settings
+  batch_size: 64  # Can be larger than training
+  
+  # Metrics
+  metrics:
+    - cosine_similarity
+    - euclidean_distance
+    - speaker_verification_accuracy
+    - embedding_distribution_match
+  
+  # Speaker verification thresholds to test
+  verification_thresholds: [0.3, 0.4, 0.5, 0.6, 0.7]
+  
+  # Generate audio samples for qualitative evaluation
+  generate_audio_samples: true
+  num_audio_samples: 20
+  audio_output_dir: evaluation/audio_samples
+
+
+# ==================== Logging and Checkpointing ====================
+logging:
+  # Log directory
+  log_dir: logs/face2voice
+  
+  # Console logging
+  log_interval: 10  # Log every N batches
+  log_level: INFO  # DEBUG, INFO, WARNING, ERROR
+  
+  # TensorBoard
+  use_tensorboard: true
+  tensorboard_dir: runs/face2voice
+  
+  # Weights & Biases
+  use_wandb: true
+  wandb_project: face-to-voice
+  wandb_entity: null  # Your wandb username
+  wandb_run_name: null  # Auto-generated if null
+  wandb_tags: [baseline, openvoice_v2, arcface]
+  wandb_notes: "Baseline training with OpenVoice V2"
+  
+  # MLflow
+  use_mlflow: false
+  mlflow_tracking_uri: null
+  mlflow_experiment_name: face2voice
+  
+  # What to log
+  log_gradients: false
+  log_weights: false
+  log_embeddings: true
+  log_learning_rate: true
+
+
+checkpointing:
+  # Checkpoint directory
+  checkpoint_dir: checkpoints/face2voice
+  
+  # Save frequency
+  save_every_n_epochs: 5
+  save_every_n_steps: null
+  
+  # Keep only last N checkpoints
+  keep_last_n: 3
+  keep_best: true
+  
+  # Best model criteria
+  best_metric: val_cosine_similarity  # or val_loss
+  best_mode: max  # max for similarity, min for loss
+  
+  # What to save in checkpoint
+  save_optimizer: true
+  save_scheduler: true
+  save_full_model: false  # False = only state dict
+
+
+# ==================== Advanced Training Strategies ====================
+advanced:
+  # Curriculum learning
+  curriculum_learning:
+    enabled: false
+    strategy: easy_to_hard  # easy_to_hard, hard_to_easy
+    metric: audio_duration
+    stages: 3
+  
+  # Progressive training
+  progressive_training:
+    enabled: false
+    stages:
+      - epochs: 30
+        freeze_layers: [face_encoder]
+        lr_multiplier: 1.0
+      - epochs: 30
+        freeze_layers: []
+        lr_multiplier: 0.1
+  
+  # Knowledge distillation
+  knowledge_distillation:
+    enabled: false
+    teacher_model: null
+    temperature: 3.0
+    alpha: 0.5
+  
+  # Self-supervised pre-training
+  self_supervised:
+    enabled: false
+    method: simclr  # simclr, moco, barlow_twins
+    epochs: 50
+    temperature: 0.5
+
+
+# ==================== Inference Configuration ====================
+inference:
+  # Model checkpoint to use
+  checkpoint_path: checkpoints/face2voice/best_model.pth
+  
+  # Device
+  device: cuda
+  
+  # Batch inference
+  batch_size: 16
+  
+  # Output settings
+  output_dir: outputs/generated_speech
+  audio_format: wav  # wav, mp3, flac
+  sample_rate: 24000
+  
+  # OpenVoice V2 TTS settings
+  tts:
+    language: English  # English, Chinese
+    speed: 1.0
+    speaker: default
+  
+  # Post-processing
+  normalize_audio: true
+  trim_silence: true
+
+
+# ==================== Debug and Development ====================
+debug:
+  # Debug mode (limits data, disables some features)
+  enabled: false
+  max_train_samples: 100
+  max_val_samples: 50
+  
+  # Profiling
+  profile: false
+  profile_steps: 100
+  
+  # Sanity checks
+  overfit_single_batch: false
+  check_gradients: false
+  detect_anomaly: false  # Torch autograd anomaly detection (slow)
+  
+  # Fast dev run (1 batch per epoch)
+  fast_dev_run: false
+
+
+# ==================== Reproducibility ====================
+reproducibility:
+  # Set seeds for reproducibility
+  seed: 42
+  deterministic: false  # CUDNN deterministic (slower)
+  benchmark: true  # CUDNN benchmark (faster but non-deterministic)
+  
+  # Save full configuration
+  save_config: true
+  config_save_path: null  # Auto-generated if null
+
+
+# ==================== Hardware and Performance ====================
+hardware:
+  # GPU settings
+  gpu_ids: [0]  # List of GPU IDs to use
+  distributed: false  # Distributed data parallel
+  
+  # Multi-GPU settings (if distributed=true)
+  dist_backend: nccl  # nccl, gloo
+  dist_url: env://
+  world_size: 1
+  rank: 0
+  
+  # Performance
+  cudnn_benchmark: true
+  cudnn_deterministic: false
+  num_workers: 4
+  prefetch_factor: 2
+  persistent_workers: true
+  
+  # Memory optimization
+  gradient_checkpointing: false
+  empty_cache_every_n_steps: 100
+
+
+# ==================== Dataset-Specific Settings ====================
+dataset:
+  # Dataset type
+  type: voxceleb2  # voxceleb2, voxceleb1, custom
+  
+  # VoxCeleb2 specific
+  voxceleb2:
+    use_dev: true
+    use_test: false
+    min_speakers: null  # Limit number of speakers for quick experiments
+    
+  # Custom dataset format
+  custom:
+    face_dir: faces
+    audio_dir: audio
+    metadata_file: metadata.csv
+    face_column: face_path
+    audio_column: audio_path
+    speaker_column: speaker_id
+
+
+# ==================== Experimental Features ====================
+experimental:
+  # Multi-task learning
+  multi_task:
+    enabled: false
+    tasks:
+      - voice_embedding
+      - gender_classification
+      - age_estimation
+    task_weights: [1.0, 0.3, 0.3]
+  
+  # Attention visualization
+  visualize_attention: false
+  
+  # Embedding space analysis
+  analyze_embeddings:
+    enabled: false
+    use_tsne: true
+    use_umap: true
+    save_plots: true

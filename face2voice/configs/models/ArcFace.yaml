@@ -29,7 +29,7 @@ pretrained:
   # Path to pretrained weights file
   # Download from: https://github.com/deepinsight/insightface
   # Or use your own trained weights
-  weights_path: pretrained/arcface_resnet50.pth
+  weights_path: face2voice\checkpoints\ms1mv3_arcface_r50_fp16\backbone.pth
   
   # Strict loading (set false to allow missing keys)
   strict_load: true
