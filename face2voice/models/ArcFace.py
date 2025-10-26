@@ -238,29 +238,3 @@ class ArcFaceEncoder(nn.Module):
                     module.eval()
         
         return self
-    
-    def save_checkpoint(self, path: str, optimizer=None, epoch: int = 0, **kwargs):
-        """Save model checkpoint."""
-        checkpoint = {
-            'model_state_dict': self.state_dict(),
-            'config': self.config,
-            'epoch': epoch,
-            **kwargs
-        }
-        
-        if optimizer is not None:
-            checkpoint['optimizer_state_dict'] = optimizer.state_dict()
-        
-        torch.save(checkpoint, path)
-        print(f"Checkpoint saved to {path}")
-    
-    @classmethod
-    def load_checkpoint(cls, path: str, device: str = 'cpu'):
-        """Load model from checkpoint."""
-        checkpoint = torch.load(path, map_location=device)
-        
-        # Create model with saved config
-        model = cls(config_dict=checkpoint['config'])
-        model.load_state_dict(checkpoint['model_state_dict'])
-        
-        return model, checkpoint

@@ -561,7 +561,7 @@ if __name__ == "__main__":
             print(f"Unknown example: {example_name}")
             print("Available examples: single, clone, batch, compare, pil")
     else:
-        print("Usage: python openvoice_tts_wrapper.py [example_name]")
+        print("Usage: python OpenVoiceTTS.py [example_name]")
         print("Examples:")
         print("  single   - Single speech synthesis")
         print("  clone    - Voice cloning from one face")
