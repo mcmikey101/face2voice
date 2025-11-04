@@ -81,21 +81,3 @@ class Face2VoiceModel(nn.Module):
         predicted_voice_embeddings = self.mapping_network(face_embeddings)
         
         return predicted_voice_embeddings
-    
-    def extract_target_embeddings(self, audio_paths: list) -> torch.Tensor:
-        """
-        Extract target voice embeddings from audio using OpenVoice.
-        
-        Args:
-            audio_paths: List of audio file paths
-        
-        Returns:
-            Target voice embeddings, shape (B, voice_dim)
-        """
-        with torch.no_grad():
-            target_embeddings = self.openvoice_encoder.extract_embeddings_batch(
-                audio_paths,
-                normalize=True
-            )
-        
-        return target_embeddings
