@@ -3,6 +3,8 @@ from face2voice.models.SpeakerEncoder import OpenVoiceSpeakerEncoder
 import torch
 from datasets import FaceVoiceDataset
 from models.Face2Voice import Face2VoiceModel
+from face2voice.models.FaceEncoder import FaceEncoder
+from face2voice.models.SpeakerEncoder import SpeakerEncoder
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from trainer.trainer import train_face_to_voice
@@ -13,22 +15,19 @@ def main():
     print(f"Using device: {device}")
     
     # 1. Initialize face encoder (ArcFace)
-    face_encoder = ArcFaceEncoder(config_path="config/arcface_config.yaml")
+    face_encoder = FaceEncoder()
+    state_dict = torch.load(r"face2voice\checkpoints\face_encoder\facenet_checkpoint.pth")
+    face_encoder.load_state_dict(state_dict=state_dict)
     face_encoder = face_encoder.to(device)
     face_encoder.eval()
     
-    # 2. Initialize OpenVoice speaker encoder
-    openvoice_encoder = OpenVoiceSpeakerEncoder(
-        openvoice_path="checkpoints/base_speakers/EN",
-        device=device
-    )
+    # 2. Initialize speaker encoder
+    speaker_encoder = SpeakerEncoder()
     
     # 3. Create Face2Voice model
     model = Face2VoiceModel(
         face_encoder=face_encoder,
-        openvoice_encoder=openvoice_encoder,
-        face_dim=512,
-        voice_dim=256
+        speaker_encoder=speaker_encoder
     )
     
     # 4. Create datasets and dataloaders
@@ -39,9 +38,9 @@ def main():
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
     ])
     
-    train_dataset = FaceVoiceDataset()
+    train_dataset = FaceVoiceDataset(audio_dir="", face_dir="", transform=face_transform)
     
-    val_dataset = FaceVoiceDataset()
+    val_dataset = FaceVoiceDataset(audio_dir="", face_dir="", transform=face_transform)
     
     train_loader = DataLoader(
         train_dataset,
