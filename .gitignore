@@ -9,6 +9,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 env/
+checkpoints/
 build/
 develop-eggs/
 dist/
@@ -105,6 +106,7 @@ data/
 input/
 saved/
 checkpoints/
+outputs/
 
 # editor, os cache directory
 .vscode/

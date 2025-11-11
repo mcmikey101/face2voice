@@ -1,199 +1,272 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from typing import Union, Optional, Tuple
+import torchaudio
+from typing import Union, List, Optional
 import numpy as np
-import librosa
-from pathlib import Path
+import os
+from openvoice import se_extractor
+from openvoice.mel_processing import mel_spectrogram_torch
+from PIL import Image
+import torchvision
 
 
 class SpeakerEncoder(nn.Module):
+    """
+    Wrapper class for OpenVoice V2 Speaker Encoder that extracts speaker embeddings
+    from audio files or tensors, supporting both single and batch processing.
+    """
     
     def __init__(
         self,
-        ckpt_base: str = "checkpoints/base_speakers/EN_V2",
-        ckpt_converter: str = "checkpoints/converter_v2",
-        device: str = "cuda" if torch.cuda.is_available() else "cpu",
-        version: str = "v2"
+        ckpt_path: str,
+        config_path: Optional[str] = None,
+        device: Optional[str] = None
     ):
         """
-        Initialize OpenVoice V2 speaker encoder.
+        Initialize the OpenVoice V2 Speaker Encoder Wrapper.
         
         Args:
-            ckpt_base: Path to base speaker checkpoint directory (EN_V2 or ZH_V2)
-            ckpt_converter: Path to converter checkpoint directory
-            device: Device to run the model on
-            version: OpenVoice version ('v2' or 'v1')
+            ckpt_path: Path to speaker encoder checkpoint
+            config_path: Path to config file (optional)
+            device: Device to run the model on ('cuda', 'cpu', or None for auto)
         """
         super().__init__()
         
-        self.device = torch.device(device)
-        self.ckpt_base = Path(ckpt_base)
-        self.ckpt_converter = Path(ckpt_converter)
-        self.version = version
+        self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
         
-        # Initialize OpenVoice V2 components
-        self._load_openvoice_v2()
+        # Import OpenVoice components
+        try:
+            from openvoice.api import ToneColorConverter
+        except ImportError:
+            raise ImportError(
+                "OpenVoice not installed. Install with: pip install openvoice"
+            )
         
-        # Speaker embedding dimension (256 for OpenVoice V2)
-        self.embedding_dim = 256
-        
-        # Audio preprocessing parameters
-        self.sample_rate = 24000  # OpenVoice V2 uses 24kHz (upgraded from V1's 16kHz)
-        
-        print(f"OpenVoice V2 Speaker Encoder initialized")
-        print(f"Embedding dimension: {self.embedding_dim}")
-        print(f"Sample rate: {self.sample_rate}")
-        print(f"Device: {self.device}")
+        # Load the tone color converter which contains the speaker encoder
+        self.tone_color_converter = ToneColorConverter(
+            config_path,
+            device=self.device
+        )
+        self.tone_color_converter.load_ckpt(ckpt_path)
+        # Set to evaluation mode
+        self.tone_color_converter.model.eval()
     
     def preprocess_audio(
         self,
-        audio: Union[str, np.ndarray, torch.Tensor],
-        sample_rate: Optional[int] = None
-    ) -> np.ndarray:
+        audio: Union[str, torch.Tensor, np.ndarray],
+        target_sr: int = 16000
+    ) -> torch.Tensor:
         """
-        Preprocess audio for speaker encoding.
+        Preprocess audio input to the format expected by the encoder.
         
         Args:
-            audio: Audio file path, numpy array, or torch tensor
-            sample_rate: Sample rate of input audio (if array/tensor)
+            audio: Audio file path, torch tensor, or numpy array
+            target_sr: Target sample rate (default: 16000)
         
         Returns:
-            Preprocessed audio as numpy array
+            Preprocessed audio tensor
         """
-        # Load audio if path is provided
-        if isinstance(audio, (str, Path)):
-            audio_data, sr = librosa.load(str(audio), sr=self.sample_rate)
-            return audio_data
-        
-        # Convert torch tensor to numpy
-        if isinstance(audio, torch.Tensor):
-            audio = audio.cpu().numpy()
+        # Load audio if it's a file path
+        if isinstance(audio, str):
+            waveform, sr = torchaudio.load(audio)
+        elif isinstance(audio, np.ndarray):
+            waveform = torch.from_numpy(audio).float()
+            sr = target_sr
+            if waveform.dim() == 1:
+                waveform = waveform.unsqueeze(0)
+        else:
+            waveform = audio
+            sr = target_sr
         
         # Resample if necessary
-        if sample_rate is not None and sample_rate != self.sample_rate:
-            audio = librosa.resample(
-                audio,
-                orig_sr=sample_rate,
-                target_sr=self.sample_rate
-            )
+        if sr != target_sr:
+            resampler = torchaudio.transforms.Resample(sr, target_sr)
+            waveform = resampler(waveform)
         
-        # Ensure mono
-        if audio.ndim > 1:
-            audio = audio.mean(axis=0)
+        # Convert to mono if stereo
+        if waveform.shape[0] > 1:
+            waveform = torch.mean(waveform, dim=0, keepdim=True)
         
-        # Normalize
-        audio = audio.astype(np.float32)
-        if np.abs(audio).max() > 1.0:
-            audio = audio / np.abs(audio).max()
-        
-        return audio
+        return waveform
     
     @torch.no_grad()
-    def extract_embedding(
+    def encode_single(
         self,
-        audio: Union[str, np.ndarray, torch.Tensor],
-        sample_rate: Optional[int] = None,
-        normalize: bool = True
-    ) -> torch.Tensor:
+        audio: Union[str, torch.Tensor, np.ndarray],
+        return_numpy: bool = False,
+        input: str = "spec_tensor"
+    ) -> Union[torch.Tensor, np.ndarray]:
         """
-        Extract speaker embedding from audio.
+        Extract speaker embedding from a single audio sample.
         
         Args:
-            audio: Audio file path, numpy array, or torch tensor
-            sample_rate: Sample rate of input audio
-            normalize: Whether to L2-normalize the embedding
+            audio: Audio file path, tensor, or numpy array
+            return_numpy: If True, return numpy array instead of torch tensor
         
         Returns:
-            Speaker embedding tensor of shape (embedding_dim,)
+            Speaker embedding vector
         """
-        # Preprocess audio
-        audio_data = self.preprocess_audio(audio, sample_rate)
-        
-        # Save temporarily for OpenVoice (it expects file path)
-        import tempfile
-        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-            import soundfile as sf
-            sf.write(tmp_path, audio_data, self.sample_rate)
-        
-        try:
-            # Extract speaker embedding using OpenVoice
-            se = self.se_extractor.get_se(
-                tmp_path,
-                self.tone_converter,
-                target_dir='processed',
-                vad=True  # Use voice activity detection
+        # If audio is a file path, use OpenVoice's built-in method
+        if input == "audio":
+            if isinstance(audio, str):
+                # OpenVoice provides se_extractor for extracting embeddings
+                from openvoice import se_extractor
+                
+                # Extract speaker embedding using OpenVoice's method
+                # This returns the tone color embedding
+                embedding, _ = se_extractor.get_se(
+                    audio,
+                    self.tone_color_converter,
+                    target_dir='temp_se',
+                    vad=True  # Voice activity detection
+                )
+                
+                # Clean up temp files
+                if os.path.exists('temp_se'):
+                    import shutil
+                    shutil.rmtree('temp_se')
+
+        elif input == "spec_tensor":
+            if (isinstance(audio, str)):
+                mel_spec = torch.load(audio)
+
+            if mel_spec.dim() == 2:
+                mel_spec = audio.unsqueeze(0)
+            embedding = self.tone_color_converter.model.ref_enc(
+                mel_spec.transpose(1, 2)
             )
-            
-            # Convert to torch tensor
-            if isinstance(se, np.ndarray):
-                embedding = torch.from_numpy(se).float()
-            else:
-                embedding = se
-            
-            # Normalize if requested
-            if normalize:
-                embedding = F.normalize(embedding, p=2, dim=-1)
-            
-            return embedding.to(self.device)
         
-        finally:
-            # Clean up temporary file
-            Path(tmp_path).unlink(missing_ok=True)
+        embedding = embedding.to(self.device)
+        
+        if return_numpy:
+            return embedding.cpu().numpy()
+        
+        embedding = embedding.unsqueeze(0)
+        
+        return embedding
     
     @torch.no_grad()
-    def extract_embeddings_batch(
+    def encode_batch(
         self,
-        audio_list: list,
-        sample_rate: Optional[int] = None,
-        normalize: bool = True
-    ) -> torch.Tensor:
+        audio: List[Union[str, torch.Tensor, np.ndarray]],
+        return_numpy: bool = False,
+        input: str = "spec_tensor"
+    ) -> Union[torch.Tensor, np.ndarray]:
         """
-        Extract speaker embeddings from a batch of audio files.
+        Extract speaker embeddings from a batch of audio samples.
         
         Args:
-            audio_list: List of audio paths, arrays, or tensors
-            sample_rate: Sample rate of input audio
-            normalize: Whether to L2-normalize embeddings
+            audio_list: List of audio file paths, tensors, or numpy arrays
+            return_numpy: If True, return numpy array instead of torch tensor
+            use_vad: Whether to use voice activity detection (for file paths)
         
         Returns:
-            Batch of speaker embeddings, shape (batch_size, embedding_dim)
+            Batch of speaker embeddings (batch_size, embedding_dim)
         """
         embeddings = []
         
-        for audio in audio_list:
-            emb = self.extract_embedding(audio, sample_rate, normalize)
-            embeddings.append(emb)
+        if input == "audio":
+            # Use OpenVoice's batch processing for files
+            
+            for audio_path in audio:
+                embedding, _ = se_extractor.get_se(
+                    audio_path,
+                    self.tone_color_converter,
+                    target_dir='temp_se_batch',
+                    vad=True
+                )
+                embeddings.append(embedding)
+            
+            # Clean up temp files
+            if os.path.exists('temp_se_batch'):
+                import shutil
+                shutil.rmtree('temp_se_batch')
+        elif audio == "spec_img":
+            # Process tensors/arrays
+            mel_specs = []
+            hps = self.tone_color_converter.hps
+            
+            for audio in audio:
+                waveform = self.preprocess_audio(audio)
+                waveform = waveform.to(self.device)
+                mel_spec = mel_spectrogram_torch(waveform, n_fft=hps.filter_length, sampling_rate=hps.sampling_rate, 
+                                                 hop_size=hps.hop_length, win_size=hps.win_length, center=False)
+                mel_specs.append(mel_spec)
+            
+            # Pad to same length for batching
+            max_len = max(spec.shape[-1] for spec in mel_specs)
+            
+            padded_specs = []
+            for spec in mel_specs:
+                if spec.dim() == 2:
+                    spec = spec.unsqueeze(0)
+                
+                pad_len = max_len - spec.shape[-1]
+                if pad_len > 0:
+                    spec = torch.nn.functional.pad(spec, (0, pad_len))
+                
+                padded_specs.append(spec)
+            
+            # Stack into batch
+            batch = torch.cat(padded_specs, dim=0)
+            batch = batch.transpose(1, 2)  # (B, T, C)
+            
+            # Get embeddings
+            batch_emb = self.tone_color_converter.model.ref_enc(batch)
+            
+            for i in range(batch_emb.shape[0]):
+                embeddings.append(batch_emb[i])
+
+        elif input == "spec_tensor":
+            max_len = max(spec.shape[-1] for spec in audio)
+            
+            padded_specs = []
+            for spec in mel_specs:
+                if spec.dim() == 2:
+                    spec = spec.unsqueeze(0)
+                
+                pad_len = max_len - spec.shape[-1]
+                if pad_len > 0:
+                    spec = torch.nn.functional.pad(spec, (0, pad_len))
+                
+                padded_specs.append(spec)
+            
+            # Stack into batch
+            batch = torch.cat(padded_specs, dim=0)
+            batch = batch.transpose(1, 2)  # (B, T, C)
+            
+            # Get embeddings
+            batch_emb = self.tone_color_converter.model.ref_enc(batch)
+            
+            for i in range(batch_emb.shape[0]):
+                embeddings.append(batch_emb[i])
         
-        return torch.stack(embeddings)
+        # Stack all embeddings
+        batch_embeddings = torch.stack(embeddings, dim=0)
+        
+        if return_numpy:
+            return batch_embeddings.cpu().numpy()
+        
+        batch_embeddings = torch.tensor(batch_embeddings)
+        return batch_embeddings
     
     def forward(
         self,
-        audio: Union[str, np.ndarray, torch.Tensor],
-        sample_rate: Optional[int] = None,
-        normalize: bool = True
-    ) -> torch.Tensor:
+        audio: Union[str, torch.Tensor, np.ndarray, List],
+        return_numpy: bool = True,
+        input: str = "spec_tensor"
+    ) -> Union[torch.Tensor, np.ndarray]:
         """
-        Forward pass - extract speaker embedding.
+        Forward pass - automatically handles single or batch input.
         
         Args:
-            audio: Audio input
-            sample_rate: Sample rate of input
-            normalize: Whether to normalize embedding
+            audio: Single audio or list of audio inputs
+            return_numpy: If True, return numpy array instead of torch tensor
         
         Returns:
-            Speaker embedding
+            Speaker embedding(s)
         """
-        return self.extract_embeddings_batch(audio, sample_rate, normalize)
-    
-    def save_embedding(self, embedding: torch.Tensor, path: str):
-        """Save speaker embedding to file."""
-        torch.save(embedding.cpu(), path)
-        print(f"Saved embedding to {path}")
-    
-    def load_embedding(self, path: str) -> torch.Tensor:
-        """Load speaker embedding from file."""
-        embedding = torch.load(path, map_location=self.device)
-        print(f"Loaded embedding from {path}")
-        return embedding
+        if isinstance(audio, list):
+            return self.encode_batch(audio, return_numpy=return_numpy, input=input)
+        else:
+            return self.encode_single(audio, return_numpy=return_numpy, input=input)

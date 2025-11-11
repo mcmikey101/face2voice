@@ -62,7 +62,7 @@ def train_face_to_voice(
             face_images = face_images.to(device)
             
             # Extract target embeddings from audio
-            target_embeddings = model.extract_target_embeddings(audio_paths)
+            target_embeddings = model.extract_batch_target_embeddings(audio_paths)
             target_embeddings = target_embeddings.to(device)
             
             # Forward pass

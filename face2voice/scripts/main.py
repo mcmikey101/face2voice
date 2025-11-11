@@ -1,4 +1,4 @@
-from models.ArcFace import ArcFaceEncoder
+from face2voice.models.FaceEncoder import ArcFaceEncoder
 from face2voice.models.SpeakerEncoder import OpenVoiceSpeakerEncoder
 import torch
 from datasets import FaceVoiceDataset

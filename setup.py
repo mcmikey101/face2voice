@@ -12,11 +12,9 @@ def read(filename):
     with io.open(filename, mode="r", encoding="utf-8") as fd:
         return re.sub(text_type(r":[a-z]+:`~?(.*?)`"), text_type(r"``\1``"), fd.read())
 
-
-requirements = [
-    # use environment.yml
-]
-
+def parse_requirements(filename):
+    with open(filename) as f:
+        return [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
 setup(
     name="face2voice",
@@ -32,7 +30,7 @@ setup(
             "face2voice=face2voice.cli:cli"
         ]
     },
-    install_requires=requirements,
+    install_requires=parse_requirements("requirements.txt"),
     classifiers=[
         "Programming Language :: Python",
         "Programming Language :: Python :: 3.6",

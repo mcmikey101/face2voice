@@ -16,7 +16,7 @@ import tempfile
 import soundfile as sf
 
 
-class Face2VoiceTTS(nn.Module):
+class TTSModel(nn.Module):
     """
     Complete TTS system that generates speech from face images.
     
@@ -26,7 +26,7 @@ class Face2VoiceTTS(nn.Module):
     This replaces OpenVoice's audio-based speaker encoder with our face-based encoder.
     
     Usage:
-        tts = Face2VoiceTTS(
+        tts = TTSModel(
             face2voice_checkpoint='checkpoints/face2voice/best_model.pth',
             openvoice_base='checkpoints/base_speakers/EN_V2',
             openvoice_converter='checkpoints/converter_v2'
@@ -86,8 +86,7 @@ class Face2VoiceTTS(nn.Module):
     def _load_face2voice_model(self, checkpoint_path: str):
         """Load the trained Face2Voice model."""
         from models.Face2Voice import Face2VoiceModel
-        from models.ArcFace import ArcFaceEncoder
-        from face2voice.models.SpeakerEncoder import OpenVoiceSpeakerEncoder
+        from face2voice.models.FaceEncoder import ArcFaceEncoder
         
         # Load checkpoint
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
@@ -400,7 +399,7 @@ def example_single_synthesis():
     print("="*60)
     
     # Initialize TTS system
-    tts = Face2VoiceTTS(
+    tts = TTSModel(
         face2voice_checkpoint='checkpoints/face2voice/best_model.pth',
         openvoice_base='checkpoints/base_speakers/EN_V2',
         openvoice_converter='checkpoints/converter_v2',
@@ -423,7 +422,7 @@ def example_voice_cloning():
     print("Example: Voice Cloning from Face")
     print("="*60)
     
-    tts = Face2VoiceTTS(
+    tts = TTSModel(
         face2voice_checkpoint='checkpoints/face2voice/best_model.pth',
         openvoice_base='checkpoints/base_speakers/EN_V2',
         openvoice_converter='checkpoints/converter_v2'
@@ -451,7 +450,7 @@ def example_batch_synthesis():
     print("Example: Batch Synthesis")
     print("="*60)
     
-    tts = Face2VoiceTTS(
+    tts = TTSModel(
         face2voice_checkpoint='checkpoints/face2voice/best_model.pth',
         openvoice_base='checkpoints/base_speakers/EN_V2',
         openvoice_converter='checkpoints/converter_v2'
@@ -484,7 +483,7 @@ def example_compare_voices():
     print("Example: Compare Different Voices")
     print("="*60)
     
-    tts = Face2VoiceTTS(
+    tts = TTSModel(
         face2voice_checkpoint='checkpoints/face2voice/best_model.pth',
         openvoice_base='checkpoints/base_speakers/EN_V2',
         openvoice_converter='checkpoints/converter_v2'
@@ -518,7 +517,7 @@ def example_with_pil_image():
     
     from PIL import Image
     
-    tts = Face2VoiceTTS(
+    tts = TTSModel(
         face2voice_checkpoint='checkpoints/face2voice/best_model.pth',
         openvoice_base='checkpoints/base_speakers/EN_V2',
         openvoice_converter='checkpoints/converter_v2'
