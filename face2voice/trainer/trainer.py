@@ -54,15 +54,15 @@ def train_face_to_voice(
         # Training
         model.train()
         model.face_encoder.eval()  # Keep frozen encoders in eval
-        model.openvoice_encoder.eval()
+        model.speaker_encoder.eval()
         
         train_losses = []
         
-        for batch_idx, (face_images, audio_paths) in enumerate(train_loader):
+        for batch_idx, (face_images, audio) in enumerate(train_loader):
             face_images = face_images.to(device)
             
             # Extract target embeddings from audio
-            target_embeddings = model.extract_batch_target_embeddings(audio_paths)
+            target_embeddings = model.extract_batch_target_embeddings(audio)
             target_embeddings = target_embeddings.to(device)
             
             # Forward pass

@@ -1,7 +1,7 @@
 from face2voice.models.FaceEncoder import ArcFaceEncoder
 from face2voice.models.SpeakerEncoder import OpenVoiceSpeakerEncoder
 import torch
-from datasets import FaceVoiceDataset
+from face2voice.datasets.FaceVoiceDataset import FaceVoiceDataset
 from models.Face2Voice import Face2VoiceModel
 from face2voice.models.FaceEncoder import FaceEncoder
 from face2voice.models.SpeakerEncoder import SpeakerEncoder
@@ -38,9 +38,9 @@ def main():
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
     ])
     
-    train_dataset = FaceVoiceDataset(audio_dir="", face_dir="", transform=face_transform)
+    train_dataset = FaceVoiceDataset(csv_path="", split="train", face_transform=face_transform)
     
-    val_dataset = FaceVoiceDataset(audio_dir="", face_dir="", transform=face_transform)
+    val_dataset = FaceVoiceDataset(csv_path="", split="test", face_transform=face_transform)
     
     train_loader = DataLoader(
         train_dataset,
