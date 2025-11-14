@@ -78,4 +78,4 @@ class Face2VoiceModel(nn.Module):
         return predicted_voice_embeddings
 
     def extract_batch_target_embeddings(self, audios):
-        return self.model.speaker_encoder.encode_batch(audios)
+        return self.speaker_encoder.encode_batch(audios)

@@ -72,12 +72,11 @@ class FaceVoiceDataset(Dataset):
         face_path = os.path.join(self.face_image_base_path, speaker_name + ".jpg").replace("/", "\\")
         
         face = Image.open(face_path).convert("RGB")
-        face = torch.from_numpy(np.array(face)).permute(2, 0, 1).float() / 255.0
         
         if self.transform_face is not None:
-            face = self.transform_face(face)
+            face = self.transform_face(face).to(self.device)
         
-        return face.to(self.device)
+        return face
     
     def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
         row = self.df.iloc[idx]

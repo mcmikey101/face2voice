@@ -221,7 +221,7 @@ class SpeakerEncoder(nn.Module):
             max_len = max(spec.shape[-1] for spec in audio)
             
             padded_specs = []
-            for spec in mel_specs:
+            for spec in audio:
                 if spec.dim() == 2:
                     spec = spec.unsqueeze(0)
                 
