@@ -4,6 +4,7 @@ import numpy as np
 from face2voice.models.Face2Voice import Face2VoiceModel
 from face2voice.losses.compound_loss import CompoundLoss
 import warnings
+import os
 warnings.filterwarnings("ignore")
 
 class Trainer:
@@ -13,6 +14,7 @@ class Trainer:
             val_loader: DataLoader,
             num_epochs: int,
             model_save_path: str,
+            opt_ckpt_path = None,
             device: str = "cuda"):
         
         self.model = model
@@ -21,6 +23,7 @@ class Trainer:
         self.num_epochs = num_epochs
         self.device = device
         self.model_save_path = model_save_path
+        self.opt_ckpt_path = opt_ckpt_path
 
     def train_face_to_voice(self):
         """
@@ -41,7 +44,9 @@ class Trainer:
             lr=1e-4,
             weight_decay=5e-4
         )
-        
+        if self.opt_ckpt_path is not None:
+            optimizer.load_state_dict(torch.load(self.opt_ckpt_path))
+
         # Scheduler
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer,
@@ -102,10 +107,10 @@ class Trainer:
             val_losses = []
             
             with torch.no_grad():
-                for face_images, audio_paths in self.val_loader:
-                    face_images = face_images.to(self.device)
+                for batch in self.val_loader:
+                    face_images = batch["face"].to(self.device)
                     
-                    target_embeddings = model.extract_batch_target_embeddings(audio_paths)
+                    target_embeddings = model.extract_batch_target_embeddings(batch["spectrogram"].to(self.device))
                     target_embeddings = target_embeddings.to(self.device)
                     
                     predicted_embeddings = model(face_images)
@@ -128,7 +133,8 @@ class Trainer:
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'val_loss': avg_val_loss
-                }, self.model_save_path)
+                }, os.path.join(self.model_save_path, "face2voice_ckpt.pth"))
+                torch.save(optimizer.state_dict(), os.path.join(self.model_save_path, "optimizer_ckpt.pth"))
                 print(f"  Saved best model! Val loss: {best_val_loss:.4f}")
             
             # Update scheduler

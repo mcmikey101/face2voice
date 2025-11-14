@@ -113,7 +113,7 @@ def main(face_encoder_ckpt, tone_conv_ckpt, tone_conv_config, dataset_csv, audio
     trainer = Trainer(model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        num_epochs=50,
+        num_epochs=1,
         model_save_path=model_save_path,
         device=device)
     
