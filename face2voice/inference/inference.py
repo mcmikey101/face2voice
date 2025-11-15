@@ -30,8 +30,11 @@ from omegaconf import DictConfig, OmegaConf
 import torch
 from pathlib import Path
 import logging
-from typing import List
+from typing import List, Optional
 import json
+import numpy as np
+
+from face2voice.metrics import TTSMetrics, TTSMetricsBatch
 
 log = logging.getLogger(__name__)
 
@@ -111,6 +114,10 @@ def run_single_synthesis(tts, cfg: DictConfig):
     if cfg.postprocess.normalize_audio or cfg.postprocess.trim_silence:
         audio_path = postprocess_audio(audio_path, cfg.postprocess)
         log.info(f"✓ Post-processed audio: {audio_path}")
+    
+    # Compute TTS metrics if reference audio is provided
+    if hasattr(config, 'reference_audio') and config.reference_audio:
+        compute_and_log_tts_metrics(audio_path, config.reference_audio, cfg)
 
 
 def run_batch_synthesis(tts, cfg: DictConfig):
@@ -370,6 +377,53 @@ def postprocess_audio(audio_path: str, postprocess_cfg: DictConfig) -> str:
     sf.write(processed_path, audio, sr)
     
     return str(processed_path)
+
+
+def compute_and_log_tts_metrics(
+    generated_audio_path: str,
+    reference_audio_path: str,
+    cfg: DictConfig
+):
+    """
+    Compute and log TTS metrics between generated and reference audio.
+    
+    Args:
+        generated_audio_path: Path to generated audio file
+        reference_audio_path: Path to reference audio file
+        cfg: Configuration object
+    """
+    try:
+        # Initialize metrics calculator
+        sample_rate = getattr(cfg.postprocess, 'target_sample_rate', 24000)
+        metrics_calc = TTSMetrics(sample_rate=sample_rate)
+        
+        # Compute metrics
+        metrics = metrics_calc.compute_all_metrics(
+            generated_audio=generated_audio_path,
+            reference_audio=reference_audio_path
+        )
+        
+        # Log metrics
+        log.info("\n" + "="*60)
+        log.info("TTS Metrics:")
+        log.info("="*60)
+        for metric_name, metric_value in metrics.items():
+            if not np.isinf(metric_value):
+                log.info(f"  {metric_name}: {metric_value:.4f}")
+            else:
+                log.info(f"  {metric_name}: N/A")
+        log.info("="*60)
+        
+        # Save metrics to JSON if output path exists
+        if hasattr(cfg.inference_mode.single, 'output_path'):
+            output_path = Path(cfg.inference_mode.single.output_path)
+            metrics_path = output_path.parent / f"{output_path.stem}_metrics.json"
+            with open(metrics_path, 'w') as f:
+                json.dump(metrics, f, indent=2)
+            log.info(f"✓ Metrics saved to: {metrics_path}")
+        
+    except Exception as e:
+        log.warning(f"Failed to compute TTS metrics: {e}")
 
 
 def create_demo_files():
