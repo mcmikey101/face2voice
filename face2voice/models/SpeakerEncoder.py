@@ -120,15 +120,22 @@ class SpeakerEncoder(nn.Module):
                     target_dir='temp_se',
                     vad=True  # Voice activity detection
                 )
-                
                 # Clean up temp files
                 if os.path.exists('temp_se'):
                     import shutil
                     shutil.rmtree('temp_se')
 
+                embedding = embedding.transpose(1, 2)
+
+                print(embedding.shape)
+
         elif input == "spec_tensor":
             if (isinstance(audio, str)):
                 mel_spec = torch.load(audio)
+
+            else: 
+                mel_spec = audio
+                mel_spec = mel_spec.to(self.device)
 
             if mel_spec.dim() == 2:
                 mel_spec = audio.unsqueeze(0)
@@ -141,7 +148,8 @@ class SpeakerEncoder(nn.Module):
         if return_numpy:
             return embedding.cpu().numpy()
         
-        embedding = embedding.unsqueeze(0)
+        if embedding.ndim == 2:
+            embedding = embedding.unsqueeze(0)
         
         return embedding
     
