@@ -226,7 +226,25 @@ class SpeakerEncoder(nn.Module):
                 embeddings.append(batch_emb[i])
 
         elif input == "spec_tensor":
-            batch_emb = self.tone_color_converter.model.ref_enc(audio)
+            max_len = max(spec.shape[-1] for spec in audio)
+            
+            padded_specs = []
+            for spec in audio:
+                if spec.dim() == 2:
+                    spec = spec.unsqueeze(0)
+                
+                pad_len = max_len - spec.shape[-1]
+                if pad_len > 0:
+                    spec = torch.nn.functional.pad(spec, (0, pad_len))
+                
+                padded_specs.append(spec)
+            
+            # Stack into batch
+            batch = torch.cat(padded_specs, dim=0)
+            batch = batch.transpose(1, 2)  # (B, T, C)
+            
+            # Get embeddings
+            batch_emb = self.tone_color_converter.model.ref_enc(batch)
             
             for i in range(batch_emb.shape[0]):
                 embeddings.append(batch_emb[i])

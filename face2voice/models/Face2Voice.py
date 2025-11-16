@@ -1,23 +1,18 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-import numpy as np
-from pathlib import Path
-from typing import Tuple
 
 class Face2VoiceModel(nn.Module):
     """
     Complete face-to-voice model combining:
     1. Face encoder (ArcFace)
     2. Mapping network (face space -> voice space)
-    3. Speaker encoder (OpenVoice) - for extracting target embeddings
+    3. Speaker encoder (speaker) - for extracting target embeddings
     """
     
     def __init__(
         self,
         face_encoder,
-        openvoice_encoder,
+        speaker_encoder,
         face_dim: int = 512,
         voice_dim: int = 256,
         hidden_dims: list = [512, 384]
@@ -27,7 +22,7 @@ class Face2VoiceModel(nn.Module):
         
         Args:
             face_encoder: Pretrained face encoder (e.g., ArcFace)
-            openvoice_encoder: OpenVoice speaker encoder for targets
+            speaker_encoder: speaker speaker encoder for targets
             face_dim: Dimension of face embeddings
             voice_dim: Dimension of voice embeddings
             hidden_dims: Hidden layer dimensions for mapping network
@@ -40,11 +35,11 @@ class Face2VoiceModel(nn.Module):
             param.requires_grad = False
         self.face_encoder.eval()
         
-        # OpenVoice encoder (frozen, for extracting targets)
-        self.openvoice_encoder = openvoice_encoder
-        for param in self.openvoice_encoder.parameters():
+        # speaker encoder (frozen, for extracting targets)
+        self.speaker_encoder = speaker_encoder
+        for param in self.speaker_encoder.parameters():
             param.requires_grad = False
-        self.openvoice_encoder.eval()
+        self.speaker_encoder.eval()
         
         # Mapping network (trainable)
         layers = []
@@ -81,3 +76,6 @@ class Face2VoiceModel(nn.Module):
         predicted_voice_embeddings = self.mapping_network(face_embeddings)
         
         return predicted_voice_embeddings
+
+    def extract_batch_target_embeddings(self, audios):
+        return self.speaker_encoder.encode_batch(audios)

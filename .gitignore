@@ -111,3 +111,6 @@ checkpoints/
 .vscode/
 .idea/
 __MACOSX/
+
+.DS_Store
+*.ipynb
