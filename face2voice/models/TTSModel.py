@@ -10,7 +10,7 @@ class TTSModel(nn.Module):
     def __init__(
         self,
         device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
-        language: str = 'ru',
+        language: str = 'ru'
     ):
         super().__init__()
         
@@ -22,11 +22,11 @@ class TTSModel(nn.Module):
     def _load_tts_components(self):
         try:
             if self.language == "ru":
-                self.voice = PiperVoice.load(r"face2voice\checkpoints\pipertts\ru\ru_RU-ruslan-medium.onnx")
+                self.voice = PiperVoice.load(r"face2voice\checkpoints\pipertts\ru\ru_RU-dmitri-medium.onnx")
             elif self.language == "en":
                 self.voice = PiperVoice.load(r"face2voice\checkpoints\pipertts\en\en_US-amy-medium.onnx")
             elif self.language == "es":
-                self.voice = PiperVoice.load(r"face2voice\checkpoints\pipertts\es\es_ES-davefx-medium.onnx.json")
+                self.voice = PiperVoice.load(r"face2voice\checkpoints\pipertts\es\es_ES-davefx-medium.onnx")
             elif self.language == "fr":
                 self.voice = PiperVoice.load(r"face2voice\checkpoints\pipertts\fr\fr_FR-siwis-medium.onnx")
             elif self.language == "zh":
