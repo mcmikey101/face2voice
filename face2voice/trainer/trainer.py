@@ -18,7 +18,7 @@ class Trainer:
             opt_ckpt_path = None,
             device: str = "cuda",
             compute_tts_metrics: bool = False,
-            tts_metrics_sample_rate: int = 24000):
+            tts_metrics_sample_rate: int = 22050):
         """
         Initialize Trainer.
         

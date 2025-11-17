@@ -2,7 +2,7 @@ import dlib
 import torch
 import numpy as np
 from PIL import Image
-from typing import Union, Optional
+from typing import Optional
 from torchvision import transforms
 from face2voice.models.SpeakerEncoder import SpeakerEncoder
 from face2voice.models.Face2Voice import Face2VoiceModel
@@ -117,7 +117,7 @@ class Inference():
     def get_image_emb(self, image_path, output_path=None):
         img = self.process_image(image_path=image_path, output_path=output_path)
         img = self.face_transform(img)
-        emb = self.face2voice(img)
+        emb = self.face2voice(img.unsqueeze(0))
         emb = emb.detach().clone().requires_grad_(True).reshape(1, -1, 1)
         return emb
     
@@ -154,3 +154,14 @@ class Inference():
         normalize_audio=normalize_audio)
 
         self.clone_voice(input_path=input_path, base_audio_path=base_audio_path, output_path=output_path, input_data=input_data)
+
+if __name__ == "__main__":
+    model_inference = Inference(face2voice_ckpt=r"face2voice\checkpoints\f2v\face2voice_ckpt.pth",
+                        face_encoder_ckpt=r"face2voice\checkpoints\face_encoder\facenet_checkpoint.pth",
+                        tone_conv_ckpt=r"face2voice\checkpoints\tone_conv\checkpoint.pth",
+                        tone_conv_conf=r"face2voice\checkpoints\tone_conv\config.json")
+    
+    input_text = "Тебе нужен меч, Торфинн? Мечи нужны, чтобы убивать людей. Кого ты собрался им убивать? Кто твой враг? Послушай меня, Торфинн. У тебя нет врагов. Никто во всём мире не желает тебе зла. Тебе ни с кем не надо воевать."
+    
+    model_inference.synthesize_audio(noise_w_scale=1.2, input_path=r"test_img.jpg", base_audio_path="test_base_audio.wav", output_path="test_clone_audio.wav", text=input_text)
+    
