@@ -10,7 +10,7 @@ class TTSModel(nn.Module):
     def __init__(
         self,
         device: str = 'cuda' if torch.cuda.is_available() else 'cpu',
-        language: str = 'ru',
+        language: str = 'ru'
     ):
         super().__init__()
         
