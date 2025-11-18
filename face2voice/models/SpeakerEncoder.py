@@ -6,8 +6,6 @@ import numpy as np
 import os
 from openvoice import se_extractor
 from openvoice.mel_processing import mel_spectrogram_torch
-from PIL import Image
-import torchvision
 
 
 class SpeakerEncoder(nn.Module):
