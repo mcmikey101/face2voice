@@ -8,9 +8,9 @@ from face2voice.models.SpeakerEncoder import SpeakerEncoder
 from face2voice.models.Face2Voice import Face2VoiceModel
 from face2voice.models.FaceEncoder import FaceEncoder
 from face2voice.models.TTSModel import TTSModel
-
+import os
 class Inference():
-    def __init__(self, face2voice_ckpt, face_encoder_ckpt, shape_pred_path, tone_conv_ckpt, tone_conv_conf, tts_ckpt):
+    def __init__(self, face2voice_ckpt, face_encoder_ckpt, shape_pred_path, tone_conv_ckpt, tone_conv_conf, tts_ckpt, tts_conf, speakers_path, speaker):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.shape_pred_path = shape_pred_path
 
@@ -20,7 +20,7 @@ class Inference():
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
-        self.base_tts = TTSModel(model_path=tts_ckpt)
+        self.base_tts = TTSModel(model_path=tts_ckpt, config_path=tts_conf, speakers_path=speakers_path, speaker=speaker)
 
         self.speaker_encoder = SpeakerEncoder(ckpt_path=tone_conv_ckpt, config_path=tone_conv_conf)
 
@@ -36,12 +36,11 @@ class Inference():
     def synthesize_base(self,
         text: str,
         output_path,
-        return_tesnor=False,
         language="ru"):
         
-        self.base_tts.synthesize(text, output_path=output_path, return_tensor=return_tesnor, language=language)
+        self.base_tts.synthesize(text, output_path=output_path, language=language)
 
-    def process_image(self, image_path, output_path=None, face_size=112, padding=0.3,):
+    def process_image(self, image_path, output_path=None, face_size=112, padding=0.3):
         detector = dlib.get_frontal_face_detector()
         predictor = dlib.shape_predictor(
             self.shape_pred_path
@@ -119,36 +118,16 @@ class Inference():
     def compare_embeddings(self, emb1, emb2):
         return torch.nn.functional.cosine_similarity(emb1, emb2, dim=1)
 
-    def clone_voice(self, input_path, base_audio_path, output_path, input_data="image"):
-        if input_data == "image":
-            tgt_emb = self.get_image_emb(image_path=input_path)
-            src_emb = self.get_audio_emb(audio_path=base_audio_path)
-            self.speaker_encoder.tone_color_converter.convert(audio_src_path=base_audio_path, src_se=src_emb, tgt_se=tgt_emb, output_path=output_path)
-        elif input_data == "audio":
-            tgt_emb = self.get_audio_emb(audio_path=input_path)
+    def clone_voice(self, image_path, base_audio_path, output_path):
+        tgt_emb = self.get_image_emb(image_path=image_path)
+        src_emb = self.get_audio_emb(audio_path=base_audio_path)
+        self.speaker_encoder.tone_color_converter.convert(audio_src_path=base_audio_path, src_se=src_emb, tgt_se=tgt_emb, output_path=output_path)
 
-    def synthesize_voice(self, input_path, base_audio_path, output_path, text: str,
-                language="ru",
-                return_tensor: bool = False,
-                input_data="image"):
+    def synthesize_voice(self, image_path, base_audio_path, output_path, text: str, language="ru"):
 
         self.synthesize_base(text=text,
         language=language,
-        output_path=base_audio_path,
-        return_tensor=return_tensor)
+        output_path=base_audio_path)
 
-        self.clone_voice(input_path=input_path, base_audio_path=base_audio_path, output_path=output_path, input_data=input_data)
-
-if __name__ == "__main__":
-    model_inference = Inference(face2voice_ckpt="face2voice/checkpoints/f2v/face2voice_ckpt.pth",
-                        face_encoder_ckpt="face2voice/checkpoints/face_encoder/facenet_checkpoint.pth",
-                        shape_pred_path="face2voice/checkpoints/shape_predictor_68_face_landmarks.dat", 
-                        tone_conv_ckpt="face2voice/checkpoints/tone_conv/checkpoint.pth",
-                        tone_conv_conf="face2voice/checkpoints/tone_conv/config.json",
-                        tts_ckpt="face2voice/checkpoints/xtts/model.pth"
-                        )
-    
-    text = "Радуга, атмосферное, оптическое и метеорологическое явление, наблюдаемое при освещении ярким источником света множества водяных капель."
-
-    model_inference.synthesize_voice(text=text, input_path="resources/simonov.jpg", base_audio_path="outputs/ru/xtts_ru_test.wav", output_path="test_clone_audio.wav")
+        self.clone_voice(image_path=image_path, base_audio_path=base_audio_path, output_path=output_path)
     
