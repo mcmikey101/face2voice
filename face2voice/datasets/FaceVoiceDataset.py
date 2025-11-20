@@ -53,7 +53,6 @@ class FaceVoiceDataset(Dataset):
         
         # Create speaker label mapping
         self.speakers = sorted(self.df['speaker'].unique())
-        self.speaker_to_idx = {spk: idx for idx, spk in enumerate(self.speakers)}
         self.num_speakers = len(self.speakers)
         
         # Count samples per speaker
@@ -69,7 +68,7 @@ class FaceVoiceDataset(Dataset):
         return len(self.df)
     
     def _load_face(self, speaker_name: str) -> Optional[torch.Tensor]:        
-        face_path = os.path.join(self.face_image_base_path, speaker_name + ".jpg").replace("/", "\\")
+        face_path = os.path.join(self.face_image_base_path, speaker_name + ".jpg")
         
         face = Image.open(face_path).convert("RGB")
         
@@ -83,7 +82,7 @@ class FaceVoiceDataset(Dataset):
         speaker_name = row['speaker']
         
         # Load spectrogram
-        audio_path = os.path.join(self.audio_base_path, row['segment']).replace("/", "\\")
+        audio_path = os.path.join(self.audio_base_path, row['segment'])
 
         try: 
             
@@ -93,21 +92,21 @@ class FaceVoiceDataset(Dataset):
                 spec = torch.from_numpy(spec)
             else:  # .wav
                 waveform, sr = torchaudio.load(audio_path)
-                
-                cur_len = waveform.shape[-1]
-                if cur_len >= self.max_length:
-                    return waveform[:, :self.max_length]
-                pad_len = self.max_length - cur_len
-                waveform = torch.nn.functional.pad(waveform, (0, pad_len))
-            
-                # Resample if needed
+
                 if sr != 22050:
-                    resampler = torchaudio.transforms.Resample(sr, 22050)
-                    waveform = resampler(waveform)
-            
-                # Convert to mono
+                    waveform = torchaudio.transforms.Resample(sr, 22050)(waveform)
+
                 if waveform.shape[0] > 1:
                     waveform = waveform.mean(dim=0, keepdim=True)
+
+                length = waveform.shape[-1]
+                target = self.max_length
+
+                if length >= target:
+                    waveform = waveform[:, :target]
+                else:
+                    pad = target - length
+                    waveform = torch.nn.functional.pad(waveform, (0, pad))
                 
                 # Generate spectrogram
                 waveform = waveform.to(self.device)
@@ -127,7 +126,6 @@ class FaceVoiceDataset(Dataset):
             # Prepare output
             output = {
                 'spectrogram': spec,
-                'speaker_id': self.speaker_to_idx[speaker_name],
                 'segment_id': row['segment'],
                 'speaker_name': speaker_name
             }

@@ -380,10 +380,10 @@ class TTSMetrics:
         # Resample to 10kHz if needed (STOI standard)
         stoi_sr = 10000
         if self.sample_rate != stoi_sr:
-            gen_audio_resampled = librosa.resample(gen_audio, orig_sr=self.sample_rate, target_sr=stoi_sr)
-            ref_audio_resampled = librosa.resample(ref_audio, orig_sr=self.sample_rate, target_sr=stoi_sr)
+            gen_audio_resampled = librosa.resample(generated_audio, orig_sr=self.sample_rate, target_sr=stoi_sr)
+            ref_audio_resampled = librosa.resample(reference_audio, orig_sr=self.sample_rate, target_sr=stoi_sr)
         else:
-            gen_audio_resampled = gen_audio
+            gen_audio_resampled = generated_audio
             ref_audio_resampled = reference_audio
         
         # Align lengths
@@ -422,7 +422,7 @@ class TTSMetrics:
         pesq_sr = 16000
         
         if self.sample_rate != pesq_sr:
-            gen_audio_resampled = librosa.resample(gen_audio, orig_sr=self.sample_rate, target_sr=pesq_sr)
+            gen_audio_resampled = librosa.resample(generated_audio, orig_sr=self.sample_rate, target_sr=pesq_sr)
             ref_audio_resampled = librosa.resample(reference_audio, orig_sr=self.sample_rate, target_sr=pesq_sr)
         else:
             gen_audio_resampled = generated_audio

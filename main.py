@@ -54,6 +54,12 @@ def build_parser():
     )
 
     parser.add_argument(
+        "-load", "--model_load_path",
+        type=str,
+        help="Path to the model checkpoint load"
+    )
+
+    parser.add_argument(
         "-save", "--model_save_path",
         type=str,
         required=True,
@@ -62,7 +68,7 @@ def build_parser():
 
     return parser
 
-def main(face_encoder_ckpt, tone_conv_ckpt, tone_conv_config, dataset_csv, audio_base_path, images_base_path, model_save_path):
+def main(face_encoder_ckpt, tone_conv_ckpt, tone_conv_config, dataset_csv, audio_base_path, images_base_path, model_save_path, model_load_path=None, ):
     """Example training script."""
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
@@ -80,6 +86,10 @@ def main(face_encoder_ckpt, tone_conv_ckpt, tone_conv_config, dataset_csv, audio
         face_encoder=face_encoder,
         speaker_encoder=speaker_encoder
     )
+    if model_load_path is not None:
+        f2v_state_dict = torch.load(model_load_path, weights_only=False)
+        model.load_state_dict(f2v_state_dict["model_state_dict"])
+
     # 4. Create datasets and dataloaders
     
     face_transform = transforms.Compose([
@@ -96,7 +106,7 @@ def main(face_encoder_ckpt, tone_conv_ckpt, tone_conv_config, dataset_csv, audio
     
     train_loader = DataLoader(
         train_dataset,
-        batch_size=32,
+        batch_size=64,
         shuffle=True,
         num_workers=4,
         pin_memory=True
@@ -104,7 +114,7 @@ def main(face_encoder_ckpt, tone_conv_ckpt, tone_conv_config, dataset_csv, audio
     
     val_loader = DataLoader(
         val_dataset,
-        batch_size=32,
+        batch_size=64,
         shuffle=False,
         num_workers=4,
         pin_memory=True
@@ -113,7 +123,7 @@ def main(face_encoder_ckpt, tone_conv_ckpt, tone_conv_config, dataset_csv, audio
     trainer = Trainer(model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        num_epochs=1,
+        num_epochs=15,
         model_save_path=model_save_path,
         device=device)
     
@@ -135,5 +145,6 @@ if __name__ == "__main__":
         "audio_base_path": args.audio_base_path,
         "images_base_path": args.images_base_path,
         "model_save_path": args.model_save_path,
+        "model_load_path": args.model_load_path
     }
     main(**params)

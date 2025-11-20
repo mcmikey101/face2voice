@@ -40,13 +40,3 @@ class TTSModel(nn.Module):
                                    language=language)
         
         print(f"Base audio generated: {output_path}")
-
-if __name__ == "__main__":
-    tts = TTS(model_path=r"face2voice\checkpoints\xtts", config_path=r"face2voice\checkpoints\xtts\config.json", speakers_file_path=r"face2voice\checkpoints\xtts\speakers_xtts.pth")
-    speakers = tts.speakers
-    for speaker in speakers:
-        speaker_name = speaker.replace(" ", "_")
-        tts.tts_to_file(text="Радуга - атмосферное, оптическое и метеорологическое явление",
-                                   file_path=rf"C:\Users\user\Desktop\projects\face2voice\outputs\xtts_speakers\{speaker_name}.wav",
-                                   speaker=speaker,
-                                   language="ru")

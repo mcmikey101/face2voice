@@ -52,7 +52,7 @@ class SpeakerEncoder(nn.Module):
     def preprocess_audio(
         self,
         audio: Union[str, torch.Tensor, np.ndarray],
-        target_sr: int = 16000
+        target_sr: int = 22050
     ) -> torch.Tensor:
         """
         Preprocess audio input to the format expected by the encoder.
@@ -124,8 +124,6 @@ class SpeakerEncoder(nn.Module):
                     shutil.rmtree('temp_se')
 
                 embedding = embedding.transpose(1, 2)
-
-                print(embedding.shape)
 
         elif input == "spec_tensor":
             if (isinstance(audio, str)):
