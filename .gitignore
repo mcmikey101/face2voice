@@ -103,10 +103,24 @@ ENV/
 
 # input data, saved log, checkpoints
 data/
-input/
-saved/
 checkpoints/
 outputs/
+
+# Generated artifacts
+# generated_audio/ and comparison_results/ are now in outputs/ (already ignored above)
+
+# Training data (should be downloaded separately)
+# wav/ is now in data/wav/ (data/ is already ignored above)
+
+# Website TODO
+website__TODO/
+
+# Node.js
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # editor, os cache directory
 .vscode/

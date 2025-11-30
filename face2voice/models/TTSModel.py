@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from pathlib import Path
-from typing import Union, Optional, Tuple
+from typing import Union, Optional, cast
 import numpy as np
 from PIL import Image
 import tempfile
@@ -85,8 +85,8 @@ class TTSModel(nn.Module):
     
     def _load_face2voice_model(self, checkpoint_path: str):
         """Load the trained Face2Voice model."""
-        from models.Face2Voice import Face2VoiceModel
-        from face2voice.models.FaceEncoder import ArcFaceEncoder
+        from face2voice.models.Face2Voice import Face2VoiceModel
+        from face2voice.models.FaceEncoder import FaceEncoder
         
         # Load checkpoint
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
@@ -95,17 +95,45 @@ class TTSModel(nn.Module):
         if 'config' in checkpoint:
             cfg = checkpoint['config']
             
-            # Create sub-components (these won't be used, just for loading state dict)
-            face_encoder = ArcFaceEncoder(
-                backbone=cfg['model']['face_encoder']['backbone'],
-                embedding_dim=cfg['model']['face_encoder']['embedding_dim'],
-                pretrained=False,  # We'll load from checkpoint
-                freeze=True
+            # Create face encoder
+            # FaceEncoder uses pretrained, classify, num_classes, dropout_prob, device
+            face_encoder = FaceEncoder(
+                pretrained=None,  # We'll load from checkpoint
+                classify=False,
+                num_classes=None,
+                dropout_prob=0.6,
+                device=self.device
             )
             
-            model = Face2VoiceModel(face_encoder, openvoice_encoder=None, face_dim=512, voice_dim=256, hidden_dims=[512, 384])
+            # Create speaker encoder (needed for training, but may not be needed for inference)
+            # For inference, we only need the face encoder and mapping network
+            from face2voice.models.SpeakerEncoder import SpeakerEncoder
+            # Try to get speaker encoder config from checkpoint, or use defaults
+            speaker_encoder = None  # Will be created if needed, but for inference may not be required
+            
+            model = Face2VoiceModel(
+                face_encoder=face_encoder,
+                speaker_encoder=speaker_encoder,
+                face_dim=512,
+                voice_dim=256,
+                hidden_dims=[512, 384]
+            )
         else:
-            raise ValueError("Checkpoint must contain 'config' field")
+            # If no config, try to load model directly (simpler approach)
+            from face2voice.models.Face2Voice import Face2VoiceModel
+            from face2voice.models.FaceEncoder import FaceEncoder
+            
+            # Create minimal components
+            face_encoder = FaceEncoder(pretrained=None, classify=False, device=self.device)
+            speaker_encoder = None
+            
+            model = Face2VoiceModel(
+                face_encoder=face_encoder,
+                speaker_encoder=speaker_encoder,
+                face_dim=512,
+                voice_dim=256,
+                hidden_dims=[512, 384]
+            )
         
         # Load state dict
         model.load_state_dict(checkpoint['model_state_dict'], strict=False)
@@ -121,14 +149,14 @@ class TTSModel(nn.Module):
             # Load base speaker TTS
             self.base_speaker_tts = BaseSpeakerTTS(
                 f'{base_path}/config.json',
-                device=self.device
+                device=str(self.device)
             )
             self.base_speaker_tts.load_ckpt(f'{base_path}/checkpoint.pth')
             
             # Load tone color converter
             self.tone_color_converter = ToneColorConverter(
                 f'{converter_path}/config.json',
-                device=self.device
+                device=str(self.device)
             )
             self.tone_color_converter.load_ckpt(f'{converter_path}/checkpoint.pth')
             
@@ -171,9 +199,12 @@ class TTSModel(nn.Module):
             face_image = (face_image.numpy() * 255).astype(np.uint8)
             face_image = Image.fromarray(face_image)
         
-        # Apply transforms
+        # Apply transforms (ToTensor() ensures it returns a Tensor)
         face_tensor = self.face_transform(face_image)
-        face_tensor = face_tensor.unsqueeze(0)  # Add batch dimension
+        # Cast to Tensor type for type checker
+        face_tensor = cast(torch.Tensor, face_tensor)
+        # Add batch dimension
+        face_tensor = face_tensor.unsqueeze(0)
         
         return face_tensor
     
@@ -288,7 +319,7 @@ class TTSModel(nn.Module):
         self,
         texts: list,
         face_images: list,
-        output_dir: str = 'outputs',
+        output_dir: Union[str, Path] = 'outputs',
         speaker: str = 'default'
     ) -> list:
         """
@@ -330,7 +361,7 @@ class TTSModel(nn.Module):
         self,
         face_image: Union[str, Path, Image.Image],
         texts: list,
-        output_dir: str = 'outputs/cloned_voice'
+        output_dir: Union[str, Path] = 'outputs/cloned_voice'
     ) -> list:
         """
         Generate multiple audio samples with the same voice (from one face).

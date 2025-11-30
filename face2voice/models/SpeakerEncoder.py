@@ -106,6 +106,8 @@ class SpeakerEncoder(nn.Module):
         Returns:
             Speaker embedding vector
         """
+        embedding: Optional[torch.Tensor] = None
+        
         # If audio is a file path, use OpenVoice's built-in method
         if input == "audio":
             if isinstance(audio, str):
@@ -125,16 +127,29 @@ class SpeakerEncoder(nn.Module):
                 if os.path.exists('temp_se'):
                     import shutil
                     shutil.rmtree('temp_se')
+            else:
+                raise ValueError(f"For input='audio', audio must be a file path (str), got {type(audio)}")
 
         elif input == "spec_tensor":
-            if (isinstance(audio, str)):
+            if isinstance(audio, str):
                 mel_spec = torch.load(audio)
+            elif isinstance(audio, torch.Tensor):
+                mel_spec = audio
+            elif isinstance(audio, np.ndarray):
+                mel_spec = torch.from_numpy(audio)
+            else:
+                raise ValueError(f"Unsupported audio type for spec_tensor input: {type(audio)}")
 
             if mel_spec.dim() == 2:
-                mel_spec = audio.unsqueeze(0)
+                mel_spec = mel_spec.unsqueeze(0)
             embedding = self.tone_color_converter.model.ref_enc(
                 mel_spec.transpose(1, 2)
             )
+        else:
+            raise ValueError(f"Unsupported input type: {input}")
+        
+        if embedding is None:
+            raise ValueError("Embedding was not generated. Check input parameters.")
         
         embedding = embedding.to(self.device)
         
@@ -181,16 +196,33 @@ class SpeakerEncoder(nn.Module):
             if os.path.exists('temp_se_batch'):
                 import shutil
                 shutil.rmtree('temp_se_batch')
-        elif audio == "spec_img":
+        elif input == "spec_img":
             # Process tensors/arrays
             mel_specs = []
             hps = self.tone_color_converter.hps
             
-            for audio in audio:
-                waveform = self.preprocess_audio(audio)
+            for audio_item in audio:
+                waveform = self.preprocess_audio(audio_item)
                 waveform = waveform.to(self.device)
-                mel_spec = mel_spectrogram_torch(waveform, n_fft=hps.filter_length, sampling_rate=hps.sampling_rate, 
-                                                 hop_size=hps.hop_length, win_size=hps.win_length, center=False)
+                # Get mel parameters with defaults
+                n_fft = getattr(hps, 'filter_length', 1024)
+                num_mels = getattr(hps, 'n_mel_channels', 80)
+                sampling_rate = getattr(hps, 'sampling_rate', 24000)
+                hop_size = getattr(hps, 'hop_length', 256)
+                win_size = getattr(hps, 'win_length', 1024)
+                fmin = getattr(hps, 'mel_fmin', 0.0)
+                fmax = getattr(hps, 'mel_fmax', 8000.0)
+                mel_spec = mel_spectrogram_torch(
+                    waveform, 
+                    n_fft=n_fft, 
+                    num_mels=num_mels,
+                    sampling_rate=sampling_rate, 
+                    hop_size=hop_size, 
+                    win_size=win_size,
+                    fmin=fmin,
+                    fmax=fmax,
+                    center=False
+                )
                 mel_specs.append(mel_spec)
             
             # Pad to same length for batching
@@ -218,10 +250,23 @@ class SpeakerEncoder(nn.Module):
                 embeddings.append(batch_emb[i])
 
         elif input == "spec_tensor":
-            max_len = max(spec.shape[-1] for spec in audio)
+            # Convert all inputs to tensors
+            audio_tensors: List[torch.Tensor] = []
+            for item in audio:
+                if isinstance(item, str):
+                    tensor = torch.load(item)
+                elif isinstance(item, np.ndarray):
+                    tensor = torch.from_numpy(item)
+                elif isinstance(item, torch.Tensor):
+                    tensor = item
+                else:
+                    raise ValueError(f"Unsupported type in audio list: {type(item)}")
+                audio_tensors.append(tensor)
+            
+            max_len = max(spec.shape[-1] for spec in audio_tensors)
             
             padded_specs = []
-            for spec in audio:
+            for spec in audio_tensors:
                 if spec.dim() == 2:
                     spec = spec.unsqueeze(0)
                 

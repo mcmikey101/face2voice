@@ -1,6 +1,7 @@
 import os
 import requests
 from requests.adapters import HTTPAdapter
+from typing import Union
 
 import torch
 from torch import nn
@@ -8,7 +9,7 @@ from torch.nn import functional as F
 
 class BasicConv2d(nn.Module):
 
-    def __init__(self, in_planes, out_planes, kernel_size, stride, padding=0):
+    def __init__(self, in_planes, out_planes, kernel_size, stride, padding: Union[int, tuple[int, int]] = 0):
         super().__init__()
         self.conv = nn.Conv2d(
             in_planes, out_planes,
@@ -204,6 +205,7 @@ class FaceEncoder(nn.Module):
         self.classify = classify
         self.num_classes = num_classes
 
+        tmp_classes: int | None = None
         if pretrained == 'vggface2':
             tmp_classes = 8631
         elif pretrained == 'casia-webface':
@@ -255,6 +257,7 @@ class FaceEncoder(nn.Module):
         self.last_bn = nn.BatchNorm1d(512, eps=0.001, momentum=0.1, affine=True)
 
         if pretrained is not None:
+            assert tmp_classes is not None, f"tmp_classes should be set when pretrained={pretrained}"
             self.logits = nn.Linear(512, tmp_classes)
 
         if self.classify and self.num_classes is not None:

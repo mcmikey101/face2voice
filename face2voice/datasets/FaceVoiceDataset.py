@@ -4,9 +4,10 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from PIL import Image
-from typing import Optional, Tuple, Dict
+from typing import Optional, Tuple, Dict, Union, Any
 from openvoice.mel_processing import spectrogram_torch
 import torchaudio
+import torchvision.transforms as transforms
 import os
 
 class FaceVoiceDataset(Dataset):
@@ -48,7 +49,7 @@ class FaceVoiceDataset(Dataset):
         
         # Determine root directory
         if root_dir is None:
-            root_dir = Path(csv_path).parent.parent
+            root_dir = str(Path(csv_path).parent.parent)
         self.root_dir = Path(root_dir)
         
         # Create speaker label mapping
@@ -71,14 +72,27 @@ class FaceVoiceDataset(Dataset):
     def _load_face(self, speaker_name: str) -> Optional[torch.Tensor]:        
         face_path = os.path.join(self.face_image_base_path, speaker_name + ".jpg").replace("/", "\\")
         
-        face = Image.open(face_path).convert("RGB")
-        
-        if self.transform_face is not None:
-            face = self.transform_face(face).to(self.device)
-        
-        return face
+        try:
+            face_image = Image.open(face_path).convert("RGB")
+            
+            if self.transform_face is not None:
+                face = self.transform_face(face_image)
+                if not isinstance(face, torch.Tensor):
+                    # If transform doesn't return tensor, convert it
+                    to_tensor = transforms.ToTensor()
+                    face = to_tensor(face_image)
+                face = face.to(self.device)
+            else:
+                # Convert PIL Image to tensor if no transform
+                to_tensor = transforms.ToTensor()
+                face = to_tensor(face_image).to(self.device)
+            
+            return face
+        except Exception as e:
+            print(f"Error loading face for {speaker_name}: {e}")
+            return None
     
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Dict[str, Union[torch.Tensor, int, str]]:
         row = self.df.iloc[idx]
         speaker_name = row['speaker']
         
@@ -96,9 +110,10 @@ class FaceVoiceDataset(Dataset):
                 
                 cur_len = waveform.shape[-1]
                 if cur_len >= self.max_length:
-                    return waveform[:, :self.max_length]
-                pad_len = self.max_length - cur_len
-                waveform = torch.nn.functional.pad(waveform, (0, pad_len))
+                    waveform = waveform[:, :self.max_length]
+                else:
+                    pad_len = self.max_length - cur_len
+                    waveform = torch.nn.functional.pad(waveform, (0, pad_len))
             
                 # Resample if needed
                 if sr != 22050:
@@ -139,8 +154,14 @@ class FaceVoiceDataset(Dataset):
             return output
 
         except Exception as e:
-            print(e)
-            return None
+            print(f"Error loading sample {idx} (speaker: {speaker_name}): {e}")
+            # Return empty dict with default values to avoid breaking DataLoader
+            return {
+                'spectrogram': torch.zeros((1, 1024, 100), dtype=torch.float32).to(self.device),
+                'speaker_id': 0,
+                'segment_id': '',
+                'speaker_name': speaker_name
+            }
     
     def get_speaker_samples(self, speaker_name: str):
         """Get all samples for a specific speaker"""
