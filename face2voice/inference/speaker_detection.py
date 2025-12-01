@@ -101,8 +101,6 @@ if __name__ == "__main__":
             if sim > 0.5:
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
-            
-
         cv2.imshow("Video", frame)
 
         if cv2.waitKey(1) == 27:
