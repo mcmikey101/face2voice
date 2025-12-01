@@ -37,11 +37,11 @@ def init_inference() -> Inference:
     shape_pred_path = ckpt_root / "dlib" / "shape_predictor_68_face_landmarks.dat"
     tone_conv_ckpt = ckpt_root / "tone_conv" / "checkpoint.pth"
     tone_conv_conf = ckpt_root / "tone_conv" / "config.json"
+    tts_name = "tts_models/multilingual/multi-dataset/xtts_v2"
     tts_ckpt = ckpt_root / "xtts"
     tts_conf = ckpt_root / "xtts" / "config.json"
-    tts_name = 'tts_models/multilingual/multi-dataset/xtts_v2'
     speakers_path = ckpt_root / "xtts" / "speakers_xtts.pth"
-    speaker = "Nova Hogarth"
+    speaker = "Filip Traverse"
 
     for p in [
         face2voice_ckpt,
@@ -144,7 +144,6 @@ async def generate_audio(
     output_audio_path = os.path.join(temp_dir, "result.wav")
 
     try:
-        print("synth")
         inference.synthesize_voice(
             image_path=image_paths,
             base_audio_path=base_audio_path,
@@ -152,6 +151,7 @@ async def generate_audio(
             text=text,
             language="ru",
         )
+        print("end synth")
     except Exception as e:
         cleanup_files(image_paths + [base_audio_path, output_audio_path], temp_dir)
         raise HTTPException(status_code=500, detail=f"Ошибка генерации аудио: {e}")
