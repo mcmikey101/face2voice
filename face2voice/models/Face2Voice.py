@@ -1,6 +1,37 @@
 import torch
 import torch.nn as nn
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class ProjectionHead(nn.Module):
+    def __init__(self, input_dim=512, hidden_dim=384, output_dim=256, dropout=0.1):
+        super().__init__()
+
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Dropout(dropout),
+
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Dropout(dropout),
+
+            nn.Linear(hidden_dim, output_dim),
+        )
+
+        nn.init.kaiming_normal_(self.net[0].weight, nonlinearity="relu")
+        nn.init.zeros_(self.net[0].bias)
+        nn.init.kaiming_normal_(self.net[3].weight, nonlinearity="relu")
+        nn.init.zeros_(self.net[3].bias)
+        nn.init.kaiming_normal_(self.net[6].weight, nonlinearity="linear")
+        nn.init.zeros_(self.net[6].bias)
+
+    def forward(self, x):
+        x = self.net(x)
+        return F.normalize(x, p=2, dim=1)
+
 class Face2VoiceModel(nn.Module):
     """
     Complete face-to-voice model combining:
@@ -12,10 +43,7 @@ class Face2VoiceModel(nn.Module):
     def __init__(
         self,
         face_encoder,
-        speaker_encoder,
-        face_dim: int = 512,
-        voice_dim: int = 256,
-        hidden_dims: list = [512, 384]
+        speaker_encoder
     ):
         """
         Initialize model.
@@ -41,22 +69,7 @@ class Face2VoiceModel(nn.Module):
             param.requires_grad = False
         self.speaker_encoder.eval()
         
-        # Mapping network (trainable)
-        layers = []
-        in_dim = face_dim
-        
-        for hidden_dim in hidden_dims:
-            layers.extend([
-                nn.Linear(in_dim, hidden_dim),
-                nn.LayerNorm(hidden_dim),
-                nn.ReLU(),
-                nn.Dropout(0.2)
-            ])
-            in_dim = hidden_dim
-        
-        layers.append(nn.Linear(in_dim, voice_dim))
-        
-        self.mapping_network = nn.Sequential(*layers)
+        self.mapping_network = ProjectionHead()
     
     def forward(self, face_images: torch.Tensor) -> torch.Tensor:
         """

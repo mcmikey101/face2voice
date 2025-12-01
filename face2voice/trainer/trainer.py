@@ -117,12 +117,11 @@ class Trainer:
                 train_losses.append(loss.item())
                 
                 # Log
-                if batch_idx % 10 == 0:
+                if batch_idx % 100 == 0:
                     print(f"Batch {batch_idx}/{len(self.train_loader)}")
                     print(f"  Loss: {loss_dict['total']:.4f}")
                     print(f"  Cosine: {loss_dict['cosine']:.4f}")
-                    print(f"  MSE: {loss_dict['mse']:.4f}")
-                    print(f"  Contrastive: {loss_dict['contrastive']:.4f}")
+                    print(f"  Contrastive: {loss_dict['info_nce']:.4f}")
             
             avg_train_loss = np.mean(train_losses)
             
@@ -177,8 +176,7 @@ class Trainer:
                 if val_metrics_summary:
                     checkpoint['metrics'] = val_metrics_summary
                 
-                torch.save(checkpoint, os.path.join(self.model_save_path, "face2voice_ckpt.pth"))
-                torch.save(optimizer.state_dict(), os.path.join(self.model_save_path, "optimizer_ckpt.pth"))
+                torch.save(checkpoint, os.path.join(self.model_save_path, "face2voice_ckpt_aug_b64_res.pth"))
                 print(f"  Saved best model! Val loss: {best_val_loss:.4f}")
             
             # Update scheduler

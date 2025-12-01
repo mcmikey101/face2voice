@@ -93,11 +93,12 @@ def main(face_encoder_ckpt, tone_conv_ckpt, tone_conv_config, dataset_csv, audio
     # 4. Create datasets and dataloaders
     
     face_transform = transforms.Compose([
-        transforms.Resize((112, 112)),
+        transforms.RandomResizedCrop(112, scale=(0.9, 1.0), ratio=(1.0, 1.0)),
+        transforms.RandomHorizontalFlip(p=0.5),
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    
+        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
+]   )
+
     train_dataset = FaceVoiceDataset(csv_path=dataset_csv, audio_base_path=audio_base_path, 
                                     face_image_base_path=images_base_path, split="train", transform_face=face_transform)
     
@@ -107,7 +108,7 @@ def main(face_encoder_ckpt, tone_conv_ckpt, tone_conv_config, dataset_csv, audio
     train_loader = DataLoader(
         train_dataset,
         batch_size=64,
-        shuffle=True,
+        shuffle=False,
         num_workers=4,
         pin_memory=True
     )
@@ -123,7 +124,7 @@ def main(face_encoder_ckpt, tone_conv_ckpt, tone_conv_config, dataset_csv, audio
     trainer = Trainer(model=model,
         train_loader=train_loader,
         val_loader=val_loader,
-        num_epochs=15,
+        num_epochs=50,
         model_save_path=model_save_path,
         device=device)
     

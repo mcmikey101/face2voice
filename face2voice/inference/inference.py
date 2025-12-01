@@ -41,98 +41,130 @@ class Inference():
         self.base_tts.synthesize(text, output_path=output_path, language=language)
 
     def process_image(self, image_path, output_path=None, face_size=112, padding=0.3):
-        detector = dlib.get_frontal_face_detector()
-        predictor = dlib.shape_predictor(
-            self.shape_pred_path
-        )
+        try:
+            detector = dlib.get_frontal_face_detector()
+            predictor = dlib.shape_predictor(
+                self.shape_pred_path
+            )
 
-        img = Image.open(image_path).convert("RGB")
-        img_np = np.array(img)
+            img = Image.open(image_path).convert("RGB")
+            img_np = np.array(img)
 
-        faces = detector(img_np, 1)
-        if len(faces) == 0:
+            faces = detector(img_np, 1)
+            if len(faces) == 0:
+                print("No faces detected")
+                return None
+
+            face = faces[0]
+            landmarks = predictor(img_np, face)
+
+            left_eye = np.mean(
+                [(landmarks.part(i).x, landmarks.part(i).y) for i in range(36, 42)],
+                axis=0
+            )
+            right_eye = np.mean(
+                [(landmarks.part(i).x, landmarks.part(i).y) for i in range(42, 48)],
+                axis=0
+            )
+
+            dy = right_eye[1] - left_eye[1]
+            dx = right_eye[0] - left_eye[0]
+            angle = np.degrees(np.arctan2(dy, dx))
+
+            center_x = (face.left() + face.right()) // 2
+            center_y = (face.top() + face.bottom()) // 2
+
+            img_rot = img.rotate(angle, center=(center_x, center_y), expand=True)
+            rot_np = np.array(img_rot)
+
+            def rotate_point(x, y, cx, cy, ang):
+                rad = np.radians(ang)
+                xr = (x - cx) * np.cos(rad) - (y - cy) * np.sin(rad) + cx
+                yr = (x - cx) * np.sin(rad) + (y - cy) * np.cos(rad) + cy
+                return xr, yr
+
+            x1, y1 = rotate_point(face.left(), face.top(), center_x, center_y, angle)
+            x2, y2 = rotate_point(face.right(), face.bottom(), center_x, center_y, angle)
+
+            face_w = x2 - x1
+            face_h = y2 - y1
+
+            pad_w = int(face_w * padding)
+            pad_h = int(face_h * padding)
+
+            x1 = max(0, int(x1 - pad_w))
+            y1 = max(0, int(y1 - pad_h))
+            x2 = min(rot_np.shape[1], int(x2 + pad_w))
+            y2 = min(rot_np.shape[0], int(y2 + pad_h))
+
+            crop_np = rot_np[y1:y2, x1:x2]
+            out = Image.fromarray(crop_np).resize((face_size, face_size), Image.LANCZOS)
+
+            if output_path:
+                out.save(output_path)
+
+            return out
+        except Exception as e:
+            print(e)
             return None
 
-        face = faces[0]
-        landmarks = predictor(img_np, face)
-
-        left_eye = np.mean(
-            [(landmarks.part(i).x, landmarks.part(i).y) for i in range(36, 42)],
-            axis=0
-        )
-        right_eye = np.mean(
-            [(landmarks.part(i).x, landmarks.part(i).y) for i in range(42, 48)],
-            axis=0
-        )
-
-        dy = right_eye[1] - left_eye[1]
-        dx = right_eye[0] - left_eye[0]
-        angle = np.degrees(np.arctan2(dy, dx))
-
-        center_x = (face.left() + face.right()) // 2
-        center_y = (face.top() + face.bottom()) // 2
-
-        img_rot = img.rotate(angle, center=(center_x, center_y), expand=True)
-        rot_np = np.array(img_rot)
-
-        def rotate_point(x, y, cx, cy, ang):
-            rad = np.radians(ang)
-            xr = (x - cx) * np.cos(rad) - (y - cy) * np.sin(rad) + cx
-            yr = (x - cx) * np.sin(rad) + (y - cy) * np.cos(rad) + cy
-            return xr, yr
-
-        x1, y1 = rotate_point(face.left(), face.top(), center_x, center_y, angle)
-        x2, y2 = rotate_point(face.right(), face.bottom(), center_x, center_y, angle)
-
-        face_w = x2 - x1
-        face_h = y2 - y1
-
-        pad_w = int(face_w * padding)
-        pad_h = int(face_h * padding)
-
-        x1 = max(0, int(x1 - pad_w))
-        y1 = max(0, int(y1 - pad_h))
-        x2 = min(rot_np.shape[1], int(x2 + pad_w))
-        y2 = min(rot_np.shape[0], int(y2 + pad_h))
-
-        crop_np = rot_np[y1:y2, x1:x2]
-        out = Image.fromarray(crop_np).resize((face_size, face_size), Image.LANCZOS)
-
-        if output_path:
-            out.save(output_path)
-
-        return out
-
     def get_audio_emb(self, audio_path):
-        emb = self.speaker_encoder.encode_single(audio=audio_path, input="audio", return_numpy=False)
-        emb = emb.detach().clone().requires_grad_(True).transpose(1, 2).squeeze(0).reshape(1, -1, 1)
-        return emb
+        try:
+            emb = self.speaker_encoder.encode_single(audio=audio_path, input="audio", return_numpy=False)
+            emb = emb.detach().clone().requires_grad_(True).transpose(1, 2).squeeze(0).reshape(1, -1, 1)
+            return emb
+        except Exception as e:
+            print(e)
+            return None
 
-    def get_image_emb(self, image_path,  output_path=None):
-        img = self.process_image(image_path=image_path, output_path=output_path)
-        img = self.face_transform(img)
-        emb = self.face2voice(img.unsqueeze(0))
-        emb = emb.detach().clone().requires_grad_(True).reshape(1, -1, 1)
-        return emb
+    def get_image_emb(self, image_path, output_path=None):
+        try:
+            img = self.process_image(image_path=image_path, output_path=output_path)
+            img = self.face_transform(img)
+            emb = self.face2voice(img.unsqueeze(0))
+            emb = emb.detach().clone().requires_grad_(True).reshape(1, -1, 1)
+            return emb
+        except Exception as e:
+            print(e)
+            return None
     
     def compare_embeddings(self, emb1, emb2):
         return torch.nn.functional.cosine_similarity(emb1, emb2, dim=1)
-
+    
+    def average_emb(self, images):
+        try:
+            avg_emb = torch.zeros((1, 256, 1))
+            for img in images:
+                emb = self.get_image_emb(image_path=img)
+                avg_emb += emb
+            return avg_emb / len(images)
+        except Exception as e:
+            print(e)
+            return None
+        
     def clone_voice(self, image_path, base_audio_path, output_path):
-        tgt_emb = self.get_image_emb(image_path=image_path)
+        if type(image_path) is list:
+            tgt_emb = self.average_emb(image_path)
+        else:
+            tgt_emb = self.get_image_emb(image_path=image_path)
         src_emb = self.get_audio_emb(audio_path=base_audio_path)
         self.speaker_encoder.tone_color_converter.convert(audio_src_path=base_audio_path, src_se=src_emb, tgt_se=tgt_emb, output_path=output_path)
 
     def synthesize_voice(self, image_path, base_audio_path, output_path, text: str, language="ru"):
+        try:
 
-        self.synthesize_base(text=text,
-        language=language,
-        output_path=base_audio_path)
+            self.synthesize_base(text=text,
+            language=language,
+            output_path=base_audio_path)
 
-        self.clone_voice(image_path=image_path, base_audio_path=base_audio_path, output_path=output_path)
-    
+            self.clone_voice(image_path, base_audio_path, output_path)
+
+        except Exception as e:
+            print(e)
+            return None
+        
 if __name__ == "__main__":
-    inference = Inference(face2voice_ckpt=r"face2voice\checkpoints\f2v\face2voice_ckpt.pth", face_encoder_ckpt=r"face2voice\checkpoints\face_encoder\facenet_checkpoint.pth",
+    inference = Inference(face2voice_ckpt=r"face2voice\checkpoints\f2v\face2voice_ckpt_aug_b64_res.pth", face_encoder_ckpt=r"face2voice\checkpoints\face_encoder\facenet_checkpoint.pth",
                           shape_pred_path=r"face2voice\checkpoints\dlib\shape_predictor_68_face_landmarks.dat", tone_conv_ckpt=r"face2voice\checkpoints\tone_conv\checkpoint.pth",
                           tone_conv_conf=r"face2voice\checkpoints\tone_conv\config.json", tts_ckpt=r"face2voice\checkpoints\xtts", 
                           tts_conf=r"face2voice\checkpoints\xtts\config.json",
@@ -144,7 +176,7 @@ if __name__ == "__main__":
         "zh": "彩虹，又稱天弓、天虹、絳等，簡稱虹，是氣象中的一種光學現象，當太陽 光照射到半空中的水滴，光線被折射及反射，在天空上形成拱形的七彩光譜，由外 圈至内圈呈紅、橙、黃、綠、蓝、靛蓝、堇紫七种颜色（霓虹則相反）。",
     }
 
-    for lang, text in texts.items():
-        for img in os.listdir(r"resources\test_images"):
-            inference.synthesize_voice(text=text, image_path=rf"resources\test_images\{img}", base_audio_path=rf"resources\xtts_{lang}_test.wav", 
-                                       output_path=rf"outputs\{lang}\{img}.wav", language=f"{lang}")
+    for lang in texts.keys():
+        for img in os.listdir(r"resources/test_images"):
+            inference.clone_voice(image_path=rf"resources\test_images\{img}", base_audio_path=rf"resources\xtts_{lang}_test.wav", 
+                                    output_path=rf"outputs\{lang}\{img}.wav")
