@@ -10,7 +10,7 @@ from face2voice.models.FaceEncoder import FaceEncoder
 from face2voice.models.TTSModel import TTSModel
 import os
 class Inference():
-    def __init__(self, face2voice_ckpt, face_encoder_ckpt, shape_pred_path, tone_conv_ckpt, tone_conv_conf, tts_ckpt, tts_conf, speakers_path, speaker):
+    def __init__(self, face2voice_ckpt, face_encoder_ckpt, shape_pred_path, tone_conv_ckpt, tone_conv_conf, tts_name, tts_ckpt, tts_conf, speakers_path, speaker):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.shape_pred_path = shape_pred_path
 
@@ -20,7 +20,7 @@ class Inference():
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
-        self.base_tts = TTSModel(model_path=tts_ckpt, config_path=tts_conf, speakers_path=speakers_path, speaker=speaker)
+        self.base_tts = TTSModel(model_name=tts_name, model_path=tts_ckpt, config_path=tts_conf, speakers_path=speakers_path, speaker=speaker)
 
         self.speaker_encoder = SpeakerEncoder(ckpt_path=tone_conv_ckpt, config_path=tone_conv_conf)
 
@@ -164,11 +164,11 @@ class Inference():
             return None
         
 if __name__ == "__main__":
-    inference = Inference(face2voice_ckpt=r"face2voice\checkpoints\f2v\face2voice_ckpt_aug_b64_res.pth", face_encoder_ckpt=r"face2voice\checkpoints\face_encoder\facenet_checkpoint.pth",
+    inference = Inference(face2voice_ckpt=r"face2voice\checkpoints\f2v\face2voice_ckpt_aug_b64_1hid.pth", face_encoder_ckpt=r"face2voice\checkpoints\face_encoder\facenet_checkpoint.pth",
                           shape_pred_path=r"face2voice\checkpoints\dlib\shape_predictor_68_face_landmarks.dat", tone_conv_ckpt=r"face2voice\checkpoints\tone_conv\checkpoint.pth",
                           tone_conv_conf=r"face2voice\checkpoints\tone_conv\config.json", tts_ckpt=r"face2voice\checkpoints\xtts", 
                           tts_conf=r"face2voice\checkpoints\xtts\config.json",
-                          speakers_path=r"face2voice\checkpoints\xtts\speakers_xtts.pth", speaker="Filip Traverse")
+                          speakers_path=r"face2voice\checkpoints\xtts\speakers_xtts.pth", tts_name="tts_models/multilingual/multi-dataset/xtts_v2", speaker="Filip Traverse")
     
     texts = {
         "ru": "Радуга, атмосферное, оптическое и метеорологическое явление, наблюдаемое при освещении ярким источником света множества водяных капель.",
@@ -178,5 +178,5 @@ if __name__ == "__main__":
 
     for lang in texts.keys():
         for img in os.listdir(r"resources/test_images"):
-            inference.clone_voice(image_path=rf"resources\test_images\{img}", base_audio_path=rf"resources\xtts_{lang}_test.wav", 
-                                    output_path=rf"outputs\{lang}\{img}.wav")
+            inference.synthesize_voice(text=texts[lang], image_path=rf"resources\test_images\{img}", base_audio_path=rf"resources\xtts_{lang}_test.wav", 
+                                    output_path=rf"outputs\{lang}\{img}.wav", language=lang)

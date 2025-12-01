@@ -176,7 +176,7 @@ class Trainer:
                 if val_metrics_summary:
                     checkpoint['metrics'] = val_metrics_summary
                 
-                torch.save(checkpoint, os.path.join(self.model_save_path, "face2voice_ckpt_aug_b64_res.pth"))
+                torch.save(checkpoint, os.path.join(self.model_save_path, "face2voice_ckpt_aug_b64_1hid.pth"))
                 print(f"  Saved best model! Val loss: {best_val_loss:.4f}")
             
             # Update scheduler

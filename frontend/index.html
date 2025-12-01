@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>FACE2VOICE — демо</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #f4f5fb;
+      --card-bg: #ffffff;
+      --accent: #4f46e5;
+      --accent-soft: #eef2ff;
+      --text-main: #111827;
+      --text-muted: #6b7280;
+      --danger: #b91c1c;
+      --success: #16a34a;
+      --border: #e5e7eb;
+      --radius-lg: 16px;
+      --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+      background: radial-gradient(circle at top, #e0e7ff 0, #f9fafb 45%, #f4f4f5 100%);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .wrapper {
+      max-width: 960px;
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+      gap: 32px;
+      padding: 2px;
+      border-radius: 24px;
+      box-shadow: var(--shadow-soft);
+      background: transparent;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    @media (max-width: 800px) {
+      .wrapper {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 22px;
+      padding: 24px 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #4f46e5, #6366f1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 1.1rem;
+      box-shadow: 0 6px 18px rgba(79, 70, 229, 0.35);
+    }
+
+    .brand-name {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-name span.title {
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-size: 0.95rem;
+    }
+
+    .brand-name span.subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .status-pill {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: #4338ca;
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .status-pill span.dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.22);
+    }
+
+    .card-intro {
+      margin-top: 4px;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      margin-top: 6px;
+    }
+
+    .field-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .required {
+      color: #ef4444;
+    }
+
+    .hint {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    textarea {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease,
+        background-color 0.15s ease;
+      background: #f9fafb;
+      min-height: 160px;
+      resize: vertical;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.2);
+      background: #ffffff;
+    }
+
+    .char-counter {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-align: right;
+      margin-top: 4px;
+    }
+
+    .char-counter span.current {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .upload-zone {
+      border-radius: 14px;
+      border: 1px dashed #cbd5f5;
+      background: #f9fafb;
+      padding: 14px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      transition: border-color 0.12s ease, background-color 0.12s ease,
+        box-shadow 0.12s ease;
+    }
+
+    .upload-zone.dragover {
+      border-color: var(--accent);
+      background: #eef2ff;
+      box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.16);
+    }
+
+    .upload-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .upload-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      background: #eef2ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: #4f46e5;
+    }
+
+    .upload-text {
+      font-size: 0.9rem;
+    }
+
+    .upload-text span.primary {
+      font-weight: 600;
+    }
+
+    .upload-text small {
+      display: block;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      margin-top: 2px;
+    }
+
+    .upload-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn-secondary {
+      border-radius: 999px;
+      border: 1px solid var(--accent);
+      padding: 7px 14px;
+      font-size: 0.85rem;
+      background: #ffffff;
+      color: var(--accent);
+      cursor: pointer;
+      font-weight: 600;
+      transition: background-color 0.15s ease, color 0.15s ease,
+        transform 0.05s ease;
+      white-space: nowrap;
+      text-decoration: none; /* для ссылки-с-кнопкой */
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-secondary:hover {
+      background: #eef2ff;
+      transform: translateY(-1px);
+    }
+
+    .checkmark {
+      font-size: 20px;
+      color: var(--success);
+      visibility: hidden;
+    }
+
+    .checkmark.visible {
+      visibility: visible;
+    }
+
+    .error {
+      color: var(--danger);
+      font-size: 0.8rem;
+      margin-top: 4px;
+    }
+
+    .footer-row {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
+      border-radius: 999px;
+      border: none;
+      padding: 10px 22px;
+      font-size: 0.95rem;
+      background: var(--accent);
+      color: #ffffff;
+      cursor: pointer;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 10px 25px rgba(79, 70, 229, 0.35);
+      transition: transform 0.08s ease, box-shadow 0.1s ease,
+        background 0.1s ease;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 14px 35px rgba(79, 70, 229, 0.4);
+      background: #4338ca;
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+      box-shadow: 0 6px 18px rgba(79, 70, 229, 0.4);
+    }
+
+    .btn-primary[disabled] {
+      opacity: 0.7;
+      cursor: default;
+      box-shadow: none;
+    }
+
+    .btn-primary span.icon {
+      font-size: 1rem;
+    }
+
+    .meta {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .success-msg {
+      color: var(--success);
+      font-size: 0.85rem;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* список файлов */
+    .file-list {
+      list-style: none;
+      margin: 10px 0 0;
+      padding: 0;
+      font-size: 0.85rem;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(229, 231, 235, 0.7);
+    }
+
+    .file-name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .file-btn {
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      font-size: 0.75rem;
+      background: #f9fafb;
+      cursor: pointer;
+      color: #4b5563;
+    }
+
+    .file-btn:hover {
+      background: #e5e7eb;
+    }
+
+    .file-btn-delete {
+      border-color: #fecaca;
+      color: #b91c1c;
+    }
+
+    /* спиннер */
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 3px solid #e5e7eb;
+      border-top-color: var(--accent);
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* блок с кнопками под аудио */
+    .audio-actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+
+    /* правая колонка */
+    .side {
+      background: rgba(15, 23, 42, 0.98);
+      color: #e5e7eb;
+      border-radius: 22px;
+      padding: 20px 22px 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+      overflow: hidden;
+    }
+
+    .side-top h2 {
+      margin: 0;
+      font-size: 1.3rem;
+    }
+
+    .side-top p {
+      margin: 10px 0 0;
+      font-size: 0.9rem;
+      color: #9ca3af;
+    }
+
+    .steps {
+      margin: 16px 0 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: step;
+    }
+
+    .steps li {
+      position: relative;
+      margin: 0 0 10px;
+      padding-left: 26px;
+      font-size: 0.86rem;
+      color: #e5e7eb;
+    }
+
+    .steps li::before {
+      counter-increment: step;
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 2px;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: #4f46e5;
+      color: #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge {
+      display: inline-flex;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      font-size: 0.72rem;
+      color: #9ca3af;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #22c55e;
+    }
+
+    .side-bottom {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="card-header">
+        <div class="brand">
+          <div class="brand-logo">F</div>
+          <div class="brand-name">
+            <span class="title">FACE2VOICE</span>
+            <span class="subtitle">Загрузка текста и фото</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="card-intro">
+        Прикрепите фото и текст.
+      </p>
+
+      <form id="uploadForm">
+        <!-- Текст -->
+        <div>
+          <div class="field-label">
+            Текст для озвучивания <span class="required">*</span>
+          </div>
+          <div class="hint">От 50 до 5000 символов.</div>
+          <textarea id="text" name="text" maxlength="5000" required></textarea>
+          <div class="char-counter">
+            <span class="current" id="charCurrent">0</span> / 5000
+          </div>
+        </div>
+
+        <!-- Фото -->
+        <div>
+          <div class="field-label">
+            Фото (до 16 файлов) <span class="required">*</span>
+          </div>
+          <div class="hint">Форматы: JPG или PNG. Размер каждого файла — до 25 МБ.</div>
+
+          <div class="upload-zone" id="uploadZone">
+            <div class="upload-main">
+              <div class="upload-icon">📷</div>
+              <div class="upload-text">
+                <span class="primary" id="uploadPrimaryText">
+                  Перетащите файлы сюда или выберите
+                </span>
+                <small id="uploadSecondaryText">
+                  Можно загрузить от 1 до 16 файлов.
+                </small>
+              </div>
+            </div>
+            <div class="upload-actions">
+              <label class="btn-secondary" for="images" id="chooseButton">
+                Выбрать файлы
+              </label>
+              <span id="imageCheck" class="checkmark">✔</span>
+            </div>
+            <input
+              type="file"
+              id="images"
+              name="images"
+              accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+              multiple
+              style="display: none"
+            />
+          </div>
+          <div class="error" id="fileError"></div>
+          <ul id="fileList" class="file-list"></ul>
+        </div>
+
+        <!-- Низ формы -->
+        <div class="footer-row">
+          <div class="meta">
+            Поля, отмеченные <span class="required">*</span>, обязательны для заполнения.
+            <br />
+            Служба технической поддержки:
+            <a
+              href="mailto:support_example@yandex.ru"
+              style="color:#2563eb; text-decoration:underline;"
+            >
+              support_example@yandex.ru
+            </a>.
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+            <button type="submit" class="btn-primary" id="submitBtn">
+              <span class="icon">✈</span>
+              Отправить
+            </button>
+            <div id="loadingIndicator" class="spinner hidden"></div>
+            <div class="success-msg" id="successMsg"></div>
+            <div class="error" id="formError"></div>
+          </div>
+        </div>
+      </form>
+
+      <!-- Блок для аудиоплеера -->
+      <div id="audioContainer" style="margin-top:16px; display:none;">
+        <audio id="audioPlayer" controls style="width:100%;"></audio>
+        <div class="audio-actions">
+          <a id="downloadLink" href="#" download="face2voice.wav" class="btn-secondary">
+            Скачать аудио
+          </a>
+          <button type="button" class="btn-secondary hidden" id="resetBtn">
+            Начать сначала
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <aside class="side">
+      <div class="side-top">
+        <h2>Как это работает</h2>
+        <p>
+          Сейчас вы загружаете исходные данные: текст, который нужно озвучить, и фотографию человека.
+        </p>
+        <ul class="steps">
+          <li>
+            Напишите текст, которым хотите озвучить человека на фотографии (от 50 до 5000 символов).
+          </li>
+          <li>
+            Прикрепите файл(ы) с фотографией лица человека в формате JPG или PNG (до 16 файлов, каждый до 25 МБ).
+          </li>
+          <li>
+            Нажмите «Отправить».
+          </li>
+        </ul>
+      </div>
+      <div class="side-bottom">
+        <div class="badge">
+          <span class="badge-dot"></span>
+          Файлы сохраняются в исходном качестве
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const MAX_TEXT_LEN = 5000;
+    const MIN_TEXT_LEN = 50;
+    const MAX_FILE_SIZE = 25 * 1024 * 1024;
+    const MAX_FILES = 16;
+
+    const textArea = document.getElementById("text");
+    const charCurrent = document.getElementById("charCurrent");
+
+    const imagesInput = document.getElementById("images");
+    const imageCheck = document.getElementById("imageCheck");
+    const fileError = document.getElementById("fileError");
+    const formError = document.getElementById("formError");
+    const successMsg = document.getElementById("successMsg");
+    const form = document.getElementById("uploadForm");
+
+    const uploadZone = document.getElementById("uploadZone");
+    const uploadPrimaryText = document.getElementById("uploadPrimaryText");
+    const uploadSecondaryText = document.getElementById("uploadSecondaryText");
+    const chooseButton = document.getElementById("chooseButton");
+    const fileList = document.getElementById("fileList");
+
+    const audioContainer = document.getElementById("audioContainer");
+    const audioPlayer = document.getElementById("audioPlayer");
+    const downloadLink = document.getElementById("downloadLink");
+
+    const submitBtn = document.getElementById("submitBtn");
+    const loadingIndicator = document.getElementById("loadingIndicator");
+    const resetBtn = document.getElementById("resetBtn");
+
+    const initialPrimaryText = uploadPrimaryText.textContent;
+    const initialSecondaryText = uploadSecondaryText.textContent;
+
+    let currentFiles = [];
+
+    textArea.addEventListener("input", () => {
+      const len = textArea.value.length;
+      charCurrent.textContent = len;
+    });
+
+    function syncInputWithCurrentFiles() {
+      const dt = new DataTransfer();
+      currentFiles.forEach((f) => dt.items.add(f));
+      imagesInput.files = dt.files;
+    }
+
+    function updateAddButtonState() {
+      if (currentFiles.length === 0) {
+        chooseButton.classList.remove("hidden");
+        chooseButton.textContent = "Выбрать файлы";
+      } else if (currentFiles.length >= MAX_FILES) {
+        chooseButton.classList.add("hidden");
+      } else {
+        chooseButton.classList.remove("hidden");
+        chooseButton.textContent = "Добавить ещё";
+      }
+    }
+
+    function setSuccessState() {
+      if (currentFiles.length === 0) {
+        imageCheck.classList.remove("visible");
+        uploadPrimaryText.textContent = initialPrimaryText;
+        uploadSecondaryText.textContent = initialSecondaryText;
+        return;
+      }
+
+      imageCheck.classList.add("visible");
+      const count = currentFiles.length;
+      uploadPrimaryText.textContent =
+        count === 1
+          ? "Файл успешно загружен!"
+          : `Файлы успешно загружены (${count})`;
+
+      const first = currentFiles[0];
+      const sizeMb = (first.size / (1024 * 1024)).toFixed(2);
+
+      uploadSecondaryText.textContent =
+        count === 1
+          ? `${first.name} (${sizeMb} МБ).`
+          : `${first.name} и ещё ${count - 1} файл(ов). Максимум 16 файлов.`;
+    }
+
+    function renderFileList() {
+      fileList.innerHTML = "";
+      currentFiles.forEach((file, index) => {
+        const li = document.createElement("li");
+        li.className = "file-item";
+
+        const nameSpan = document.createElement("span");
+        nameSpan.className = "file-name";
+        nameSpan.textContent = file.name;
+
+        const actions = document.createElement("div");
+        actions.className = "file-actions";
+
+        const viewBtn = document.createElement("button");
+        viewBtn.type = "button";
+        viewBtn.className = "file-btn";
+        viewBtn.textContent = "Посмотреть";
+        viewBtn.addEventListener("click", () => {
+          const url = URL.createObjectURL(file);
+          window.open(url, "_blank");
+          setTimeout(() => URL.revokeObjectURL(url), 10000);
+        });
+
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "file-btn file-btn-delete";
+        delBtn.textContent = "✕";
+        delBtn.title = "Удалить";
+        delBtn.addEventListener("click", () => {
+          currentFiles.splice(index, 1);
+          syncInputWithCurrentFiles();
+          renderFileList();
+          updateAddButtonState();
+          setSuccessState();
+          if (currentFiles.length === 0) {
+            fileError.textContent = "";
+          }
+        });
+
+        actions.appendChild(viewBtn);
+        actions.appendChild(delBtn);
+
+        li.appendChild(nameSpan);
+        li.appendChild(actions);
+        fileList.appendChild(li);
+      });
+    }
+
+    function addFiles(newFileList) {
+      fileError.textContent = "";
+      const validTypes = ["image/jpeg", "image/png"];
+
+      const incoming = Array.from(newFileList || []);
+      if (incoming.length === 0) return;
+
+      let remaining = MAX_FILES - currentFiles.length;
+      if (remaining <= 0) {
+        fileError.textContent = `Можно загрузить не более ${MAX_FILES} файлов`;
+        return;
+      }
+
+      for (const file of incoming) {
+        if (remaining <= 0) break;
+
+        if (!validTypes.includes(file.type)) {
+          fileError.textContent = "Допустимы только JPG и PNG";
+          continue;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+          fileError.textContent = `Файл ${file.name} слишком большой (максимум 25 МБ)`;
+          continue;
+        }
+
+        currentFiles.push(file);
+        remaining--;
+      }
+
+      if (currentFiles.length === 0) {
+        fileError.textContent =
+          fileError.textContent || "Нужно выбрать хотя бы один файл";
+      }
+
+      syncInputWithCurrentFiles();
+      renderFileList();
+      updateAddButtonState();
+      setSuccessState();
+    }
+
+    imagesInput.addEventListener("change", () => {
+      addFiles(imagesInput.files);
+      imagesInput.value = "";
+    });
+
+    // Drag & drop
+    ["dragenter", "dragover"].forEach((eventName) => {
+      uploadZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadZone.classList.add("dragover");
+      });
+    });
+
+    ["dragleave", "drop"].forEach((eventName) => {
+      uploadZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadZone.classList.remove("dragover");
+      });
+    });
+
+    uploadZone.addEventListener("drop", (e) => {
+      const dt = e.dataTransfer;
+      if (!dt || !dt.files || !dt.files.length) return;
+      addFiles(dt.files);
+    });
+
+    function resetFormState() {
+      // текст
+      textArea.value = "";
+      charCurrent.textContent = "0";
+
+      // файлы
+      currentFiles = [];
+      syncInputWithCurrentFiles();
+      renderFileList();
+      imageCheck.classList.remove("visible");
+      uploadPrimaryText.textContent = initialPrimaryText;
+      uploadSecondaryText.textContent = initialSecondaryText;
+      updateAddButtonState();
+
+      // сообщения
+      fileError.textContent = "";
+      formError.textContent = "";
+      successMsg.textContent = "";
+
+      // аудио
+      audioContainer.style.display = "none";
+      audioPlayer.removeAttribute("src");
+      downloadLink.removeAttribute("href");
+
+      // кнопки/спиннер
+      submitBtn.disabled = false;
+      submitBtn.classList.remove("hidden");
+      loadingIndicator.classList.add("hidden");
+      resetBtn.classList.add("hidden");
+    }
+
+    resetBtn.addEventListener("click", resetFormState);
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      formError.textContent = "";
+      successMsg.textContent = "";
+      fileError.textContent = "";
+
+      audioContainer.style.display = "none";
+      audioPlayer.removeAttribute("src");
+      downloadLink.removeAttribute("href");
+
+      const text = textArea.value.trim();
+      if (!text) {
+        formError.textContent = "Поле текста обязательно";
+        return;
+      }
+      if (text.length < MIN_TEXT_LEN) {
+        formError.textContent =
+          `Минимальная длина текста — ${MIN_TEXT_LEN} символов.`;
+        return;
+      }
+      if (text.length > MAX_TEXT_LEN) {
+        formError.textContent = "Текст превышает 5000 символов";
+        return;
+      }
+
+      if (currentFiles.length === 0) {
+        formError.textContent = "Нужно загрузить хотя бы одно фото";
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("text", text);
+      currentFiles.forEach((file) => {
+        formData.append("images", file);
+      });
+
+      // прячем кнопку добавления файлов на время запроса
+      chooseButton.classList.add("hidden");
+
+      // меняем кнопку на спиннер
+      submitBtn.disabled = true;
+      submitBtn.classList.add("hidden");
+      loadingIndicator.classList.remove("hidden");
+      resetBtn.classList.add("hidden");
+
+      try {
+        const resp = await fetch("http://127.0.0.1:8000/api/generate", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!resp.ok) {
+          let detail = "Ошибка на сервере";
+          try {
+            const data = await resp.json();
+            if (data && data.detail) detail = data.detail;
+          } catch (_) {}
+          formError.textContent = detail;
+          loadingIndicator.classList.add("hidden");
+          submitBtn.disabled = false;
+          submitBtn.classList.remove("hidden");
+          // на ошибке — возвращаем кнопку добавления файлов
+          updateAddButtonState();
+          return;
+        }
+
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+
+        audioPlayer.src = url;
+        downloadLink.href = url;
+        audioContainer.style.display = "block";
+
+        successMsg.textContent = "Аудио успешно сгенерировано.";
+
+        loadingIndicator.classList.add("hidden");
+        // покажем кнопку "Начать сначала"
+        resetBtn.classList.remove("hidden");
+        // кнопку добавления файлов после успешной генерации не возвращаем
+      } catch (err) {
+        console.error(err);
+        formError.textContent = "Не удалось отправить данные";
+        loadingIndicator.classList.add("hidden");
+        submitBtn.disabled = false;
+        submitBtn.classList.remove("hidden");
+        // на ошибке — вернём кнопку добавления файлов
+        updateAddButtonState();
+      }
+    });
+
+    // начальное состояние
+    updateAddButtonState();
+  </script>
+</body>
+</html>

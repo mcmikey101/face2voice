@@ -11,26 +11,16 @@ class ProjectionHead(nn.Module):
 
         self.net = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
-            nn.ReLU(inplace=True),
-            nn.Dropout(dropout),
-
-            nn.Linear(hidden_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
             nn.ReLU(inplace=True),
             nn.Dropout(dropout),
 
             nn.Linear(hidden_dim, output_dim),
         )
 
-        nn.init.kaiming_normal_(self.net[0].weight, nonlinearity="relu")
-        nn.init.zeros_(self.net[0].bias)
-        nn.init.kaiming_normal_(self.net[3].weight, nonlinearity="relu")
-        nn.init.zeros_(self.net[3].bias)
-        nn.init.kaiming_normal_(self.net[6].weight, nonlinearity="linear")
-        nn.init.zeros_(self.net[6].bias)
-
     def forward(self, x):
         x = self.net(x)
-        return F.normalize(x, p=2, dim=1)
+        return x
 
 class Face2VoiceModel(nn.Module):
     """
