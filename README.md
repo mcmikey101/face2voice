@@ -6,11 +6,6 @@
 
 1) Создать и активировать виртуальное окружение python 3.10:
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
 2) Установить зависимости:
 
 ```bash
