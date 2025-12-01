@@ -53,8 +53,16 @@ pip install dlib
 pip install dlib
 ```
 
+3) Установить папку с моделями и внести в папку face2voice
+
+https://drive.google.com/drive/folders/1gROmF3W4diL1dotvtP9nQi29DK0_6f3y?usp=drive_link
+
 ## Запуск проекта
 
+1) Активация сервера
+
 ```bash
-python main.py
+uvicorn backend.main:app --reload
 ```
+
+2) Запуск файла с фронтендом frontend/index.html
