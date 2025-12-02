@@ -57,6 +57,8 @@ pip install dlib
 
 https://drive.google.com/drive/folders/1gROmF3W4diL1dotvtP9nQi29DK0_6f3y?usp=drive_link
 
+4) Установить любым способом ffmpeg
+
 Запустить тестовую генерацию можно командой
 
 ```bash
