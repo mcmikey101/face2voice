@@ -168,7 +168,7 @@ if __name__ == "__main__":
                           shape_pred_path=r"face2voice\checkpoints\dlib\shape_predictor_68_face_landmarks.dat", tone_conv_ckpt=r"face2voice\checkpoints\tone_conv\checkpoint.pth",
                           tone_conv_conf=r"face2voice\checkpoints\tone_conv\config.json", tts_ckpt=r"face2voice\checkpoints\xtts", 
                           tts_conf=r"face2voice\checkpoints\xtts\config.json",
-                          speakers_path=r"face2voice\checkpoints\xtts\speakers_xtts.pth", tts_name="tts_models/multilingual/multi-dataset/xtts_v2", speaker="Filip Traverse")
+                          speakers_path=r"face2voice\checkpoints\xtts\speakers_xtts.pth", tts_name="tts_models/multilingual/multi-dataset/xtts_v2", speaker="Nova Hogarth")
     
     texts = {
         "ru": "Радуга, атмосферное, оптическое и метеорологическое явление, наблюдаемое при освещении ярким источником света множества водяных капель.",
@@ -176,7 +176,5 @@ if __name__ == "__main__":
         "zh": "彩虹，又稱天弓、天虹、絳等，簡稱虹，是氣象中的一種光學現象，當太陽 光照射到半空中的水滴，光線被折射及反射，在天空上形成拱形的七彩光譜，由外 圈至内圈呈紅、橙、黃、綠、蓝、靛蓝、堇紫七种颜色（霓虹則相反）。",
     }
 
-    for lang in texts.keys():
-        for img in os.listdir(r"resources/test_images"):
-            inference.synthesize_voice(text=texts[lang], image_path=rf"resources\test_images\{img}", base_audio_path=rf"resources\xtts_{lang}_test.wav", 
-                                    output_path=rf"outputs\{lang}\{img}.wav", language=lang)
+    inference.synthesize_voice(text=texts["ru"], image_path=rf"resources\test_images\gogol.jpg", base_audio_path=rf"resources\xtts_ru_test.wav", 
+                                    output_path=rf"outputs\ru\gogol.wav", language="ru")

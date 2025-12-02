@@ -145,7 +145,7 @@ async def generate_audio(
 
     try:
         inference.synthesize_voice(
-            image_path=image_paths,
+            image_path=image_path,
             base_audio_path=base_audio_path,
             output_path=output_audio_path,
             text=text,
