@@ -151,7 +151,7 @@ async def generate_audio(
             text=text,
             language="ru",
         )
-        print("end synth")
+
     except Exception as e:
         cleanup_files(image_paths + [base_audio_path, output_audio_path], temp_dir)
         raise HTTPException(status_code=500, detail=f"Ошибка генерации аудио: {e}")
