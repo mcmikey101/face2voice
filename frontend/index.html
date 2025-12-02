@@ -653,330 +653,322 @@
       </div>
     </aside>
   </div>
+<script>
+  const MAX_TEXT_LEN = 5000;
+  const MIN_TEXT_LEN = 50;
+  const MAX_FILE_SIZE = 25 * 1024 * 1024;
+  const MAX_FILES = 16;
 
-  <script>
-    const MAX_TEXT_LEN = 5000;
-    const MIN_TEXT_LEN = 50;
-    const MAX_FILE_SIZE = 25 * 1024 * 1024;
-    const MAX_FILES = 16;
+  const textArea = document.getElementById("text");
+  const charCurrent = document.getElementById("charCurrent");
 
-    const textArea = document.getElementById("text");
-    const charCurrent = document.getElementById("charCurrent");
+  const imagesInput = document.getElementById("images");
+  const imageCheck = document.getElementById("imageCheck");
+  const fileError = document.getElementById("fileError");
+  const formError = document.getElementById("formError");
+  const successMsg = document.getElementById("successMsg");
+  const form = document.getElementById("uploadForm");
 
-    const imagesInput = document.getElementById("images");
-    const imageCheck = document.getElementById("imageCheck");
-    const fileError = document.getElementById("fileError");
-    const formError = document.getElementById("formError");
-    const successMsg = document.getElementById("successMsg");
-    const form = document.getElementById("uploadForm");
+  const uploadZone = document.getElementById("uploadZone");
+  const uploadPrimaryText = document.getElementById("uploadPrimaryText");
+  const uploadSecondaryText = document.getElementById("uploadSecondaryText");
+  const chooseButton = document.getElementById("chooseButton");
+  const fileList = document.getElementById("fileList");
 
-    const uploadZone = document.getElementById("uploadZone");
-    const uploadPrimaryText = document.getElementById("uploadPrimaryText");
-    const uploadSecondaryText = document.getElementById("uploadSecondaryText");
-    const chooseButton = document.getElementById("chooseButton");
-    const fileList = document.getElementById("fileList");
+  const audioContainer = document.getElementById("audioContainer");
+  const audioPlayer = document.getElementById("audioPlayer");
+  const downloadLink = document.getElementById("downloadLink");
 
-    const audioContainer = document.getElementById("audioContainer");
-    const audioPlayer = document.getElementById("audioPlayer");
-    const downloadLink = document.getElementById("downloadLink");
+  const submitBtn = document.getElementById("submitBtn");
+  const loadingIndicator = document.getElementById("loadingIndicator");
+  const resetBtn = document.getElementById("resetBtn");
 
-    const submitBtn = document.getElementById("submitBtn");
-    const loadingIndicator = document.getElementById("loadingIndicator");
-    const resetBtn = document.getElementById("resetBtn");
+  const initialPrimaryText = uploadPrimaryText.textContent;
+  const initialSecondaryText = uploadSecondaryText.textContent;
 
-    const initialPrimaryText = uploadPrimaryText.textContent;
-    const initialSecondaryText = uploadSecondaryText.textContent;
+  let currentFiles = [];
 
-    let currentFiles = [];
+  textArea.addEventListener("input", () => {
+    charCurrent.textContent = textArea.value.length;
+  });
 
-    textArea.addEventListener("input", () => {
-      const len = textArea.value.length;
-      charCurrent.textContent = len;
-    });
+  function syncInputWithCurrentFiles() {
+    const dt = new DataTransfer();
+    currentFiles.forEach((f) => dt.items.add(f));
+    imagesInput.files = dt.files;
+  }
 
-    function syncInputWithCurrentFiles() {
-      const dt = new DataTransfer();
-      currentFiles.forEach((f) => dt.items.add(f));
-      imagesInput.files = dt.files;
+  function updateAddButtonState() {
+    if (currentFiles.length === 0) {
+      chooseButton.classList.remove("hidden");
+      chooseButton.textContent = "Выбрать файлы";
+    } else if (currentFiles.length >= MAX_FILES) {
+      chooseButton.classList.add("hidden");
+    } else {
+      chooseButton.classList.remove("hidden");
+      chooseButton.textContent = "Добавить ещё";
     }
+  }
 
-    function updateAddButtonState() {
-      if (currentFiles.length === 0) {
-        chooseButton.classList.remove("hidden");
-        chooseButton.textContent = "Выбрать файлы";
-      } else if (currentFiles.length >= MAX_FILES) {
-        chooseButton.classList.add("hidden");
-      } else {
-        chooseButton.classList.remove("hidden");
-        chooseButton.textContent = "Добавить ещё";
-      }
-    }
-
-    function setSuccessState() {
-      if (currentFiles.length === 0) {
-        imageCheck.classList.remove("visible");
-        uploadPrimaryText.textContent = initialPrimaryText;
-        uploadSecondaryText.textContent = initialSecondaryText;
-        return;
-      }
-
-      imageCheck.classList.add("visible");
-      const count = currentFiles.length;
-      uploadPrimaryText.textContent =
-        count === 1
-          ? "Файл успешно загружен!"
-          : `Файлы успешно загружены (${count})`;
-
-      const first = currentFiles[0];
-      const sizeMb = (first.size / (1024 * 1024)).toFixed(2);
-
-      uploadSecondaryText.textContent =
-        count === 1
-          ? `${first.name} (${sizeMb} МБ).`
-          : `${first.name} и ещё ${count - 1} файл(ов). Максимум 16 файлов.`;
-    }
-
-    function renderFileList() {
-      fileList.innerHTML = "";
-      currentFiles.forEach((file, index) => {
-        const li = document.createElement("li");
-        li.className = "file-item";
-
-        const nameSpan = document.createElement("span");
-        nameSpan.className = "file-name";
-        nameSpan.textContent = file.name;
-
-        const actions = document.createElement("div");
-        actions.className = "file-actions";
-
-        const viewBtn = document.createElement("button");
-        viewBtn.type = "button";
-        viewBtn.className = "file-btn";
-        viewBtn.textContent = "Посмотреть";
-        viewBtn.addEventListener("click", () => {
-          const url = URL.createObjectURL(file);
-          window.open(url, "_blank");
-          setTimeout(() => URL.revokeObjectURL(url), 10000);
-        });
-
-        const delBtn = document.createElement("button");
-        delBtn.type = "button";
-        delBtn.className = "file-btn file-btn-delete";
-        delBtn.textContent = "✕";
-        delBtn.title = "Удалить";
-        delBtn.addEventListener("click", () => {
-          currentFiles.splice(index, 1);
-          syncInputWithCurrentFiles();
-          renderFileList();
-          updateAddButtonState();
-          setSuccessState();
-          if (currentFiles.length === 0) {
-            fileError.textContent = "";
-          }
-        });
-
-        actions.appendChild(viewBtn);
-        actions.appendChild(delBtn);
-
-        li.appendChild(nameSpan);
-        li.appendChild(actions);
-        fileList.appendChild(li);
-      });
-    }
-
-    function addFiles(newFileList) {
-      fileError.textContent = "";
-      const validTypes = ["image/jpeg", "image/png"];
-
-      const incoming = Array.from(newFileList || []);
-      if (incoming.length === 0) return;
-
-      let remaining = MAX_FILES - currentFiles.length;
-      if (remaining <= 0) {
-        fileError.textContent = `Можно загрузить не более ${MAX_FILES} файлов`;
-        return;
-      }
-
-      for (const file of incoming) {
-        if (remaining <= 0) break;
-
-        if (!validTypes.includes(file.type)) {
-          fileError.textContent = "Допустимы только JPG и PNG";
-          continue;
-        }
-        if (file.size > MAX_FILE_SIZE) {
-          fileError.textContent = `Файл ${file.name} слишком большой (максимум 25 МБ)`;
-          continue;
-        }
-
-        currentFiles.push(file);
-        remaining--;
-      }
-
-      if (currentFiles.length === 0) {
-        fileError.textContent =
-          fileError.textContent || "Нужно выбрать хотя бы один файл";
-      }
-
-      syncInputWithCurrentFiles();
-      renderFileList();
-      updateAddButtonState();
-      setSuccessState();
-    }
-
-    imagesInput.addEventListener("change", () => {
-      addFiles(imagesInput.files);
-      imagesInput.value = "";
-    });
-
-    // Drag & drop
-    ["dragenter", "dragover"].forEach((eventName) => {
-      uploadZone.addEventListener(eventName, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        uploadZone.classList.add("dragover");
-      });
-    });
-
-    ["dragleave", "drop"].forEach((eventName) => {
-      uploadZone.addEventListener(eventName, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        uploadZone.classList.remove("dragover");
-      });
-    });
-
-    uploadZone.addEventListener("drop", (e) => {
-      const dt = e.dataTransfer;
-      if (!dt || !dt.files || !dt.files.length) return;
-      addFiles(dt.files);
-    });
-
-    function resetFormState() {
-      // текст
-      textArea.value = "";
-      charCurrent.textContent = "0";
-
-      // файлы
-      currentFiles = [];
-      syncInputWithCurrentFiles();
-      renderFileList();
+  function setSuccessState() {
+    if (currentFiles.length === 0) {
       imageCheck.classList.remove("visible");
       uploadPrimaryText.textContent = initialPrimaryText;
       uploadSecondaryText.textContent = initialSecondaryText;
-      updateAddButtonState();
-
-      // сообщения
-      fileError.textContent = "";
-      formError.textContent = "";
-      successMsg.textContent = "";
-
-      // аудио
-      audioContainer.style.display = "none";
-      audioPlayer.removeAttribute("src");
-      downloadLink.removeAttribute("href");
-
-      // кнопки/спиннер
-      submitBtn.disabled = false;
-      submitBtn.classList.remove("hidden");
-      loadingIndicator.classList.add("hidden");
-      resetBtn.classList.add("hidden");
+      return;
     }
+    imageCheck.classList.add("visible");
 
-    resetBtn.addEventListener("click", resetFormState);
+    const count = currentFiles.length;
+    uploadPrimaryText.textContent =
+      count === 1 ? "Файл успешно загружен!" : `Файлы успешно загружены (${count})`;
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      formError.textContent = "";
-      successMsg.textContent = "";
-      fileError.textContent = "";
+    const first = currentFiles[0];
+    const sizeMb = (first.size / (1024 * 1024)).toFixed(2);
 
-      audioContainer.style.display = "none";
-      audioPlayer.removeAttribute("src");
-      downloadLink.removeAttribute("href");
+    uploadSecondaryText.textContent =
+      count === 1
+        ? `${first.name} (${sizeMb} МБ).`
+        : `${first.name} и ещё ${count - 1} файл(ов). Максимум 16 файлов.`;
+  }
 
-      const text = textArea.value.trim();
-      if (!text) {
-        formError.textContent = "Поле текста обязательно";
-        return;
-      }
-      if (text.length < MIN_TEXT_LEN) {
-        formError.textContent =
-          `Минимальная длина текста — ${MIN_TEXT_LEN} символов.`;
-        return;
-      }
-      if (text.length > MAX_TEXT_LEN) {
-        formError.textContent = "Текст превышает 5000 символов";
-        return;
-      }
+  function renderFileList() {
+    fileList.innerHTML = "";
+    currentFiles.forEach((file, index) => {
+      const li = document.createElement("li");
+      li.className = "file-item";
 
-      if (currentFiles.length === 0) {
-        formError.textContent = "Нужно загрузить хотя бы одно фото";
-        return;
-      }
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "file-name";
+      nameSpan.textContent = file.name;
 
-      const formData = new FormData();
-      formData.append("text", text);
-      currentFiles.forEach((file) => {
-        formData.append("images", file);
+      const actions = document.createElement("div");
+      actions.className = "file-actions";
+
+      const viewBtn = document.createElement("button");
+      viewBtn.type = "button";
+      viewBtn.className = "file-btn";
+      viewBtn.textContent = "Посмотреть";
+      viewBtn.addEventListener("click", () => {
+        const url = URL.createObjectURL(file);
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
       });
 
-      // прячем кнопку добавления файлов на время запроса
-      chooseButton.classList.add("hidden");
-
-      // меняем кнопку на спиннер
-      submitBtn.disabled = true;
-      submitBtn.classList.add("hidden");
-      loadingIndicator.classList.remove("hidden");
-      resetBtn.classList.add("hidden");
-
-      try {
-        const resp = await fetch("http://127.0.0.1:8000/api/generate", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!resp.ok) {
-          let detail = "Ошибка на сервере";
-          try {
-            const data = await resp.json();
-            if (data && data.detail) detail = data.detail;
-          } catch (_) {}
-          formError.textContent = detail;
-          loadingIndicator.classList.add("hidden");
-          submitBtn.disabled = false;
-          submitBtn.classList.remove("hidden");
-          // на ошибке — возвращаем кнопку добавления файлов
-          updateAddButtonState();
-          return;
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "file-btn file-btn-delete";
+      delBtn.textContent = "✕";
+      delBtn.title = "Удалить";
+      delBtn.addEventListener("click", () => {
+        currentFiles.splice(index, 1);
+        syncInputWithCurrentFiles();
+        renderFileList();
+        updateAddButtonState();
+        setSuccessState();
+        if (currentFiles.length === 0) {
+          fileError.textContent = "";
         }
+      });
 
-        const blob = await resp.blob();
-        const url = URL.createObjectURL(blob);
+      actions.appendChild(viewBtn);
+      actions.appendChild(delBtn);
 
-        audioPlayer.src = url;
-        downloadLink.href = url;
-        audioContainer.style.display = "block";
+      li.appendChild(nameSpan);
+      li.appendChild(actions);
+      fileList.appendChild(li);
+    });
+  }
 
-        successMsg.textContent = "Аудио успешно сгенерировано.";
+  function addFiles(newFileList) {
+    fileError.textContent = "";
+    const validTypes = ["image/jpeg", "image/png"];
 
-        loadingIndicator.classList.add("hidden");
-        // покажем кнопку "Начать сначала"
-        resetBtn.classList.remove("hidden");
-        // кнопку добавления файлов после успешной генерации не возвращаем
-      } catch (err) {
-        console.error(err);
-        formError.textContent = "Не удалось отправить данные";
+    const incoming = Array.from(newFileList || []);
+    if (incoming.length === 0) return;
+
+    let remaining = MAX_FILES - currentFiles.length;
+    if (remaining <= 0) {
+      fileError.textContent = `Можно загрузить не более ${MAX_FILES} файлов`;
+      return;
+    }
+
+    for (const file of incoming) {
+      if (remaining <= 0) break;
+
+      if (!validTypes.includes(file.type)) {
+        fileError.textContent = "Допустимы только JPG и PNG";
+        continue;
+      }
+      if (file.size > MAX_FILE_SIZE) {
+        fileError.textContent = `Файл ${file.name} слишком большой (максимум 25 МБ)`;
+        continue;
+      }
+
+      currentFiles.push(file);
+      remaining--;
+    }
+
+    if (currentFiles.length === 0) {
+      fileError.textContent =
+        fileError.textContent || "Нужно выбрать хотя бы один файл";
+    }
+
+    syncInputWithCurrentFiles();
+    renderFileList();
+    updateAddButtonState();
+    setSuccessState();
+  }
+
+  imagesInput.addEventListener("change", () => {
+    addFiles(imagesInput.files);
+    imagesInput.value = "";
+  });
+
+  ["dragenter", "dragover"].forEach((eventName) => {
+    uploadZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      uploadZone.classList.add("dragover");
+    });
+  });
+
+  ["dragleave", "drop"].forEach((eventName) => {
+    uploadZone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      uploadZone.classList.remove("dragover");
+    });
+  });
+
+  uploadZone.addEventListener("drop", (e) => {
+    const dt = e.dataTransfer;
+    if (!dt || !dt.files || !dt.files.length) return;
+    addFiles(dt.files);
+  });
+
+  function resetFormState() {
+    textArea.value = "";
+    charCurrent.textContent = "0";
+
+    currentFiles = [];
+    syncInputWithCurrentFiles();
+    renderFileList();
+    imageCheck.classList.remove("visible");
+    uploadPrimaryText.textContent = initialPrimaryText;
+    uploadSecondaryText.textContent = initialSecondaryText;
+    updateAddButtonState();
+
+    fileError.textContent = "";
+    formError.textContent = "";
+    successMsg.textContent = "";
+
+    audioContainer.style.display = "none";
+    audioPlayer.removeAttribute("src");
+    downloadLink.removeAttribute("href");
+
+    submitBtn.disabled = false;
+    submitBtn.classList.remove("hidden");
+    loadingIndicator.classList.add("hidden");
+    resetBtn.classList.add("hidden");
+  }
+
+  resetBtn.addEventListener("click", resetFormState);
+
+  async function pollStatus(jobId) {
+    for (;;) {
+      const r = await fetch(`http://127.0.0.1:8000/api/status/${jobId}`);
+      const s = await r.json();
+
+      if (s.status === "done") return s.url;
+
+      await new Promise((res) => setTimeout(res, 1500));
+    }
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    formError.textContent = "";
+    successMsg.textContent = "";
+    fileError.textContent = "";
+    audioContainer.style.display = "none";
+    audioPlayer.removeAttribute("src");
+    downloadLink.removeAttribute("href");
+
+    const text = textArea.value.trim();
+    if (!text) {
+      formError.textContent = "Поле текста обязательно";
+      return;
+    }
+    if (text.length < MIN_TEXT_LEN) {
+      formError.textContent = `Минимальная длина текста — ${MIN_TEXT_LEN} символов.`;
+      return;
+    }
+    if (text.length > MAX_TEXT_LEN) {
+      formError.textContent = "Текст превышает 5000 символов";
+      return;
+    }
+    if (currentFiles.length === 0) {
+      formError.textContent = "Нужно загрузить хотя бы одно фото";
+      return;
+    }
+
+    chooseButton.classList.add("hidden");
+    submitBtn.disabled = true;
+    submitBtn.classList.add("hidden");
+    loadingIndicator.classList.remove("hidden");
+    resetBtn.classList.add("hidden");
+
+    const formData = new FormData();
+    formData.append("text", text);
+    currentFiles.forEach((file) => formData.append("images", file));
+
+    try {
+      const resp = await fetch("http://127.0.0.1:8000/api/generate", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!resp.ok) {
+        let detail = "Ошибка на сервере";
+        try {
+          const data = await resp.json();
+          if (data && data.detail) detail = data.detail;
+        } catch (_) {}
+        formError.textContent = detail;
         loadingIndicator.classList.add("hidden");
         submitBtn.disabled = false;
         submitBtn.classList.remove("hidden");
-        // на ошибке — вернём кнопку добавления файлов
         updateAddButtonState();
+        return;
       }
-    });
 
-    // начальное состояние
-    updateAddButtonState();
-  </script>
+      const data = await resp.json();
+      const jobId = data.id;
+
+      const resultUrl = await pollStatus(jobId);
+
+      const audioResp = await fetch(`http://127.0.0.1:8000${resultUrl}`);
+      const blob = await audioResp.blob();
+      const url = URL.createObjectURL(blob);
+
+      audioPlayer.src = url;
+      downloadLink.href = url;
+      audioContainer.style.display = "block";
+
+      successMsg.textContent = "Аудио успешно сгенерировано.";
+      loadingIndicator.classList.add("hidden");
+      resetBtn.classList.remove("hidden");
+    } catch (err) {
+      formError.textContent = "Не удалось отправить данные";
+      loadingIndicator.classList.add("hidden");
+      submitBtn.disabled = false;
+      submitBtn.classList.remove("hidden");
+      updateAddButtonState();
+    }
+  });
+</script>
+
 </body>
 </html>

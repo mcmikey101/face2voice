@@ -1,8 +1,10 @@
 import os
 import tempfile
 import shutil
+import uuid
 from pathlib import Path
-from typing import List
+from typing import List, Dict
+from datetime import datetime
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,7 +17,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # в проде лучше ограничить доменами фронтенда
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -23,13 +25,15 @@ app.add_middleware(
 
 inference: Inference | None = None
 
+# Хранилище задач (в продакшене использовать Redis/DB)
+jobs: Dict[str, dict] = {}
+
 
 def init_inference() -> Inference:
     """
     Инициализация Inference с путями, аналогичными примеру из inference.py.
-    Путь считается относительно корня репозитория face2voice.
     """
-    base_dir = Path(__file__).resolve().parent.parent  # корень репо face2voice
+    base_dir = Path(__file__).resolve().parent.parent
     ckpt_root = base_dir / "face2voice" / "checkpoints"
 
     face2voice_ckpt = ckpt_root / "f2v" / "face2voice_ckpt_aug_b64_1hid.pth"
@@ -92,6 +96,41 @@ def cleanup_files(files: List[str], temp_dir: str | None = None) -> None:
             pass
 
 
+def process_job(job_id: str, text: str, image_paths: List[str], temp_dir: str):
+    """
+    Фоновая задача для генерации аудио.
+    """
+    try:
+        jobs[job_id]["status"] = "processing"
+        
+        base_audio_path = os.path.join(temp_dir, "base_tts.wav")
+        output_audio_path = os.path.join(temp_dir, "result.wav")
+
+        inference.synthesize_voice(
+            image_path=image_paths,
+            base_audio_path=base_audio_path,
+            output_path=output_audio_path,
+            text=text,
+            language="ru",
+        )
+
+        if not os.path.exists(output_audio_path):
+            jobs[job_id]["status"] = "error"
+            jobs[job_id]["error"] = "Аудиофайл не был создан"
+            return
+
+        jobs[job_id]["status"] = "done"
+        jobs[job_id]["url"] = f"/api/download/{job_id}"
+        jobs[job_id]["output_path"] = output_audio_path
+        jobs[job_id]["temp_files"] = image_paths + [base_audio_path]
+        jobs[job_id]["temp_dir"] = temp_dir
+
+    except Exception as e:
+        jobs[job_id]["status"] = "error"
+        jobs[job_id]["error"] = str(e)
+        cleanup_files(image_paths + [base_audio_path, output_audio_path], temp_dir)
+
+
 @app.post("/api/generate")
 async def generate_audio(
     background_tasks: BackgroundTasks,
@@ -99,12 +138,7 @@ async def generate_audio(
     images: List[UploadFile] = File(...),
 ):
     """
-    Вход:
-      - text: текст для озвучивания
-      - images: 1–16 фотографий (JPG/PNG)
-
-    Выход:
-      - аудиофайл (audio/wav)
+    Создает задачу на генерацию аудио и возвращает job_id для отслеживания.
     """
     if inference is None:
         raise HTTPException(status_code=500, detail="Модель не инициализирована")
@@ -119,9 +153,11 @@ async def generate_audio(
     if len(images) > 16:
         raise HTTPException(status_code=400, detail="Максимум 16 фотографий")
 
+    # Создаем временную директорию
     temp_dir = tempfile.mkdtemp(prefix="face2voice_")
     image_paths: List[str] = []
 
+    # Сохраняем изображения
     for idx, img in enumerate(images):
         filename = img.filename or f"image_{idx}.png"
         ext = os.path.splitext(filename)[1].lower()
@@ -138,33 +174,66 @@ async def generate_audio(
             f.write(content)
         image_paths.append(out_path)
 
-    image_path = image_paths[0]
+    # Создаем задачу
+    job_id = str(uuid.uuid4())
+    jobs[job_id] = {
+        "status": "pending",
+        "created_at": datetime.now().isoformat(),
+    }
 
-    base_audio_path = os.path.join(temp_dir, "base_tts.wav")
-    output_audio_path = os.path.join(temp_dir, "result.wav")
+    # Запускаем обработку в фоне
+    background_tasks.add_task(process_job, job_id, text, image_paths, temp_dir)
 
-    try:
-        inference.synthesize_voice(
-            image_path=image_paths,
-            base_audio_path=base_audio_path,
-            output_path=output_audio_path,
-            text=text,
-            language="ru",
-        )
+    return {"id": job_id, "status": "pending"}
 
-    except Exception as e:
-        cleanup_files(image_paths + [base_audio_path, output_audio_path], temp_dir)
-        raise HTTPException(status_code=500, detail=f"Ошибка генерации аудио: {e}")
 
-    if not os.path.exists(output_audio_path):
-        cleanup_files(image_paths + [base_audio_path, output_audio_path], temp_dir)
-        raise HTTPException(status_code=500, detail="Аудиофайл не был создан")
+@app.get("/api/status/{job_id}")
+async def get_status(job_id: str):
+    """
+    Проверяет статус задачи.
+    """
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
 
-    files_to_remove = image_paths + [base_audio_path, output_audio_path]
-    background_tasks.add_task(cleanup_files, files_to_remove, temp_dir)
+    job = jobs[job_id]
+    
+    return {
+        "status": job["status"],
+        "url": job.get("url"),
+        "error": job.get("error"),
+    }
+
+
+@app.get("/api/download/{job_id}")
+async def download_audio(job_id: str, background_tasks: BackgroundTasks):
+    """
+    Скачивает готовое аудио и планирует очистку файлов ПОСЛЕ отправки.
+    """
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
+
+    job = jobs[job_id]
+    
+    if job["status"] != "done":
+        raise HTTPException(status_code=400, detail="Аудио еще не готово")
+
+    output_path = job.get("output_path")
+    if not output_path or not os.path.exists(output_path):
+        raise HTTPException(status_code=404, detail="Аудиофайл не найден")
+
+    # КРИТИЧНО: очистка происходит ПОСЛЕ отправки файла
+    temp_files = job.get("temp_files", [])
+    temp_dir = job.get("temp_dir")
+    
+    # Добавляем output_path в список для удаления
+    files_to_clean = temp_files + [output_path]
+    
+    # Планируем очистку ПОСЛЕ отправки
+    background_tasks.add_task(cleanup_files, files_to_clean, temp_dir)
+    background_tasks.add_task(lambda: jobs.pop(job_id, None))
 
     return FileResponse(
-        path=output_audio_path,
+        path=output_path,
         media_type="audio/wav",
         filename="face2voice.wav",
     )
