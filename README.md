@@ -60,13 +60,13 @@ https://drive.google.com/drive/folders/1gROmF3W4diL1dotvtP9nQi29DK0_6f3y?usp=dri
 4) Установить любым способом ffmpeg
 https://www.wikihow.com/Install-FFmpeg-on-Windows
 
-Запустить тестовую генерацию можно командой
+Запустить генерацию можно в cli командой:
 
 ```bash
-python -m face2voice.inference.inference
+python -m face2voice.inference.inference --text "Ваш текст" --images "Путь к изображению" --out "Путь для сохранения аудио" --lang "Язык (пример: ru, en, es, zh)"
 ```
 
-## Запуск проекта
+## Запуск сайта проекта
 
 1) Активация сервера
 
