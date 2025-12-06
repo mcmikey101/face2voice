@@ -163,18 +163,137 @@ class Inference():
             print(e)
             return None
         
-if __name__ == "__main__":
-    inference = Inference(face2voice_ckpt=r"face2voice\checkpoints\f2v\face2voice_ckpt_aug_b64_1hid.pth", face_encoder_ckpt=r"face2voice\checkpoints\face_encoder\facenet_checkpoint.pth",
-                          shape_pred_path=r"face2voice\checkpoints\dlib\shape_predictor_68_face_landmarks.dat", tone_conv_ckpt=r"face2voice\checkpoints\tone_conv\checkpoint.pth",
-                          tone_conv_conf=r"face2voice\checkpoints\tone_conv\config.json", tts_ckpt=r"face2voice\checkpoints\xtts", 
-                          tts_conf=r"face2voice\checkpoints\xtts\config.json",
-                          speakers_path=r"face2voice\checkpoints\xtts\speakers_xtts.pth", tts_name="tts_models/multilingual/multi-dataset/xtts_v2", speaker="Nova Hogarth")
-    
-    texts = {
-        "ru": "Радуга, атмосферное, оптическое и метеорологическое явление, наблюдаемое при освещении ярким источником света множества водяных капель.",
-        "en": "A rainbow is a meteorological phenomenon that is caused by reflection, refraction and dispersion of light in water droplets resulting in a spectrum of light appearing in the sky.",
-        "zh": "彩虹，又稱天弓、天虹、絳等，簡稱虹，是氣象中的一種光學現象，當太陽 光照射到半空中的水滴，光線被折射及反射，在天空上形成拱形的七彩光譜，由外 圈至内圈呈紅、橙、黃、綠、蓝、靛蓝、堇紫七种颜色（霓虹則相反）。",
-    }
+import argparse
+import sys
 
-    inference.synthesize_voice(text=texts["ru"], image_path=rf"resources\test_images\gogol.jpg", base_audio_path=rf"resources\xtts_ru_test.wav", 
-                                    output_path=rf"outputs\ru\gogol.wav", language="ru")
+def cli_main():
+    parser = argparse.ArgumentParser(
+        description="Face2Voice: Генерация голоса по тексту и изображению лица"
+    )
+
+    parser.add_argument(
+        "--text",
+        type=str,
+        required=True,
+        help="Текст для генерации речи"
+    )
+
+    parser.add_argument(
+        "--images",
+        type=str,
+        nargs="+",
+        required=True,
+        help="Пути к изображениям лица (одно или несколько)"
+    )
+
+    parser.add_argument(
+        "--out",
+        type=str,
+        required=True,
+        help="Путь сохранения итогового аудио (wav)"
+    )
+
+    parser.add_argument(
+        "--lang",
+        type=str,
+        default="ru",
+        help="Язык синтеза речи (например: ru, en)"
+    )
+
+    # Конфигурация чекпоинтов — при необходимости заменить под вашу структуру
+    parser.add_argument(
+        "--face2voice_ckpt",
+        type=str,
+        default="face2voice/checkpoints/f2v/face2voice_ckpt_aug_b64_1hid.pth"
+    )
+    parser.add_argument(
+        "--face_encoder_ckpt",
+        type=str,
+        default="face2voice/checkpoints/face_encoder/facenet_checkpoint.pth"
+    )
+    parser.add_argument(
+        "--shape_pred_path",
+        type=str,
+        default="face2voice/checkpoints/dlib/shape_predictor_68_face_landmarks.dat"
+    )
+    parser.add_argument(
+        "--tone_conv_ckpt",
+        type=str,
+        default="face2voice/checkpoints/tone_conv/checkpoint.pth"
+    )
+    parser.add_argument(
+        "--tone_conv_conf",
+        type=str,
+        default="face2voice/checkpoints/tone_conv/config.json"
+    )
+    parser.add_argument(
+        "--tts_name",
+        type=str,
+        default="tts_models/multilingual/multi-dataset/xtts_v2"
+    )
+    parser.add_argument(
+        "--tts_ckpt",
+        type=str,
+        default="face2voice/checkpoints/xtts"
+    )
+    parser.add_argument(
+        "--tts_conf",
+        type=str,
+        default="face2voice/checkpoints/xtts/config.json"
+    )
+    parser.add_argument(
+        "--speakers_path",
+        type=str,
+        default="face2voice/checkpoints/xtts/speakers_xtts.pth"
+    )
+    parser.add_argument(
+        "--speaker",
+        type=str,
+        default="Filip Traverse",
+        help="Имя спикера XTTS"
+    )
+
+    args = parser.parse_args()
+
+    print("[INFO] Инициализация моделей…")
+    try:
+        infer = Inference(
+            face2voice_ckpt=args.face2voice_ckpt,
+            face_encoder_ckpt=args.face_encoder_ckpt,
+            shape_pred_path=args.shape_pred_path,
+            tone_conv_ckpt=args.tone_conv_ckpt,
+            tone_conv_conf=args.tone_conv_conf,
+            tts_name=args.tts_name,
+            tts_ckpt=args.tts_ckpt,
+            tts_conf=args.tts_conf,
+            speakers_path=args.speakers_path,
+            speaker=args.speaker,
+        )
+    except Exception as e:
+        print(f"[ERROR] Не удалось инициализировать модели: {e}")
+        sys.exit(1)
+
+    print("[INFO] Генерация базового TTS-аудио…")
+    tmp_out = args.out + ".base_tmp.wav"
+    infer.synthesize_base(text=args.text, output_path=tmp_out, language=args.lang)
+
+    print("[INFO] Клонирование голоса…")
+    infer.clone_voice(
+        image_path=args.images,
+        base_audio_path=tmp_out,
+        output_path=args.out
+    )
+
+    # Удаляем временный файл
+    try:
+        import os
+        if os.path.exists(tmp_out):
+            os.remove(tmp_out)
+    except:
+        pass
+
+    print(f"[OK] Готово! Аудио сохранено в: {args.out}")
+
+
+if __name__ == "__main__":
+    cli_main()
