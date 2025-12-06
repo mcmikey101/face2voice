@@ -57,6 +57,15 @@ pip install dlib
 
 https://drive.google.com/drive/folders/1gROmF3W4diL1dotvtP9nQi29DK0_6f3y?usp=drive_link
 
+4) Установить любым способом ffmpeg
+https://www.wikihow.com/Install-FFmpeg-on-Windows
+
+Запустить тестовую генерацию можно командой
+
+```bash
+python -m face2voice.inference.inference
+```
+
 ## Запуск проекта
 
 1) Активация сервера
