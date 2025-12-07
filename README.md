@@ -66,6 +66,8 @@ https://www.wikihow.com/Install-FFmpeg-on-Windows
 python -m face2voice.inference.inference --text "Ваш текст" --images "Путь к изображению" --out "Путь для сохранения аудио" --lang "Язык (пример: ru, en, es, zh)"
 ```
 
+Для наиболее корректной работы модели, изображения должны быть в формате jpg.
+
 ## Запуск сайта проекта
 
 1) Активация сервера
