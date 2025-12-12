@@ -4,9 +4,11 @@
 
 ## Установка проекта
 
-1) Создать и активировать виртуальное окружение python 3.10
+1) Клонировать репозиторий
 
-2) Установить зависимости:
+2) Создать и активировать виртуальное окружение python 3.10
+
+3) Установить зависимости:
 
 ```bash
 pip install -r requirements.txt
@@ -53,14 +55,14 @@ pip install dlib
 pip install dlib
 ```
 
-3) Установить папку с моделями и внести в папку face2voice
+4) Установить папку с моделями и внести в папку face2voice
 
 https://drive.google.com/drive/folders/1gROmF3W4diL1dotvtP9nQi29DK0_6f3y?usp=drive_link
 
-4) Установить любым способом ffmpeg
+5) Установить ffmpeg
 https://www.wikihow.com/Install-FFmpeg-on-Windows
 
-Запустить генерацию можно в cli командой:
+Запустить генерацию можно в терминале командой:
 
 ```bash
 python -m face2voice.inference.inference --text "Ваш текст" --images "Путь к изображению" --out "Путь для сохранения аудио" --lang "Язык (пример: ru, en, es, zh)"
