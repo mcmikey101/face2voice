@@ -110,18 +110,19 @@ class SpeakerEncoder(nn.Module):
                 # OpenVoice provides se_extractor for extracting embeddings
                 from openvoice import se_extractor
                 
-                # Extract speaker embedding using OpenVoice's method
-                # This returns the tone color embedding
+                import tempfile
+                import shutil
+
+                tmp = tempfile.mkdtemp(prefix="ov_se_")
+
                 embedding, _ = se_extractor.get_se(
                     audio,
                     self.tone_color_converter,
-                    target_dir='temp_se',
-                    vad=True  # Voice activity detection
+                    target_dir=tmp,
+                    vad=True
                 )
-                # Clean up temp files
-                if os.path.exists('temp_se'):
-                    import shutil
-                    shutil.rmtree('temp_se')
+
+                shutil.rmtree(tmp, ignore_errors=True)
 
                 embedding = embedding.transpose(1, 2)
 
