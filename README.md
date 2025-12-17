@@ -55,7 +55,7 @@ pip install dlib
 pip install dlib
 ```
 
-4) Установить папку с моделями и внести в папку face2voice
+4) Скачать модели и внести в папку face2voice
 https://drive.google.com/uc?export=download&id=1ca-AjXvOWGbOWXMrawETRvHwhPqPhX96
 
 5) Установить ffmpeg
